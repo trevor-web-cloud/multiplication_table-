@@ -14,10 +14,7 @@
 
   <style>
     :root {
-      --qfont: 120px;             /* legacy var */
-      --quiz-font-size: 120px;    /* question size actual */
-      --cfont: 60px;              /* legacy var */
-      --ctrl-font-size: 60px;     /* answer/input/button size */
+      --quiz-font-size: 120px;   /* master size: question + answer + button */
       --vv-offset: 0px;
       --app-vh: 100vh;
     }
@@ -57,7 +54,7 @@
     /* Settings form */
     .row { display:grid; grid-template-columns:260px 1fr; gap:12px; align-items:center; margin:10px 0; }
     .row label { font-size: clamp(14px, 1.4vw, 20px); }
-    input, textarea, select, button { font-size: 16px !important; }  /* iOS anti-zoom */
+    input, textarea, select, button { font-size: 16px !important; }  /* iOS anti-zoom baseline */
     input, textarea, select { width:100%; max-width:100%; border:1px solid #ddd; border-radius:12px; padding:12px; }
 
     .actions { display:flex; gap:12px; margin-top:12px; flex-wrap: wrap; }
@@ -72,11 +69,9 @@
     .question  { display:flex; align-items:center; justify-content:center; text-align:center; padding:28px 12px; }
     .question span {
       font-weight:800; line-height:1.1;
-      /* desktop & mobile: prefer viewport scaling but cap by setting */
-      font-size: clamp(28px, 12vw, var(--quiz-font-size));
-      /* ensure the question doesn't shrink due to flex */
-      flex-shrink: 0;
+      font-size: var(--quiz-font-size) !important;
       white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .answer-bar {
@@ -87,14 +82,21 @@
       border-top-left-radius:12px; border-top-right-radius:12px;
     }
     .answer-bar input {
-      min-height:56px; text-align:center;
-      /* large on desktop, still bounded on small screens */
-      font-size: clamp(16px, 4.5vw, var(--ctrl-font-size));
-      padding: 14px 18px;
+      /* Unified with question size */
+      font-size: var(--quiz-font-size) !important;
+      line-height: 1.05;
+      padding: 0.2em 0.35em;
+      min-height: 1.2em;
+      text-align: center;
+      width: min(12ch, 60%);
+      max-width: 100%;
     }
     .answer-bar button {
-      min-width:140px; min-height:56px;
-      font-size: clamp(16px, 2.6vw, var(--ctrl-font-size));
+      /* Unified with question size */
+      font-size: var(--quiz-font-size) !important;
+      line-height: 1.05;
+      padding: 0.2em 0.6em;
+      min-height: 1.2em;
     }
 
     .hidden { display:none !important; }
@@ -182,7 +184,6 @@
 
     // Helpers
     const clampQ = px => Math.min(120, Math.max(12, px));
-    const clampC = px => Math.min(120, Math.max(16, Math.floor(px*0.6))); // desktop bigger but keep >=16
 
     const setView = showQuiz => {
       elSettings.classList.toggle('hidden', showQuiz);
@@ -316,23 +317,18 @@
 
     // Start button
     elStart.addEventListener('click', () => {
-      state.timeLimit = Math.max(1, parseInt(elTL.value,10) || 5);
-      const total = Math.max(1, parseInt(elTQ.value,10) || 10);
-      state.fontSize = clampQ(parseInt(elFS.value,10) || 120);
-      const ctrlFont = clampC(state.fontSize);
+      const fontSize = clampQ(parseInt(elFS.value,10) || 120);
+      const total    = Math.max(1, parseInt(elTQ.value,10) || 10);
+      state.timeLimit= Math.max(1, parseInt(elTL.value,10) || 5);
+      state.fontSize = fontSize;
 
-      // Apply font variables for both desktop & mobile
-      document.documentElement.style.setProperty('--qfont', state.fontSize + 'px');          // legacy
-      document.documentElement.style.setProperty('--quiz-font-size', state.fontSize + 'px'); // used by .question
-      document.documentElement.style.setProperty('--cfont', ctrlFont + 'px');                // legacy
-      document.documentElement.style.setProperty('--ctrl-font-size', ctrlFont + 'px');       // inputs/buttons
+      // Apply the same font size to question + answer + button
+      document.documentElement.style.setProperty('--quiz-font-size', fontSize + 'px');
 
       state.isReview = !elReview.disabled && elReview.checked;
-
       state.results = []; state.allCorrect = true;
       state.questions = (state.isReview && state.wrongQuestions.length) ? [...state.wrongQuestions] : makeQuestions(total, elSeries.value);
       state.idx = 0;
-
       setView(true);
       showQuestion();
     });
