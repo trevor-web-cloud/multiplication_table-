@@ -96,9 +96,9 @@
           <div id="timer" class="timer">Time left: 0s</div>
           <div class="question"><span id="qText"></span></div>
           <div class="answer-bar">
-            <!-- Softer numeric: text + inputmode=numeric; no OTP autocomplete -->
+            <!-- 不強制數字鍵盤；仍可輸入數字，並由程式過濾非數字 -->
             <input id="ans"
-                   type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done"
+                   type="text" inputmode="text" enterkeyhint="done"
                    autocapitalize="off" autocorrect="off" autocomplete="off"
                    aria-label="Your answer" />
             <button id="submitBtn" type="button">Submit</button>
@@ -137,6 +137,10 @@ const elQText   = document.getElementById('qText');
 const elTimer   = document.getElementById('timer');
 const elAns     = document.getElementById('ans');
 const elSubmit  = document.getElementById('submitBtn');
+
+/* ===== Env detection ===== */
+const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+                 || window.matchMedia('(pointer:coarse)').matches;
 
 /* ===== Utils ===== */
 const clampQ = px => Math.min(120, Math.max(12, px));
@@ -229,40 +233,28 @@ function refreshReview(){
   }
 }
 
-/* ===== Keyboard & focus helpers ===== */
-/* Softer numeric keyboard strategy:
-   - type="text" + inputmode="numeric"
-   - no OTP autocomplete
-   - digit-only filter
-*/
-const MAX_LEN = 6; // adjust if you want longer answers
-elAns.addEventListener('input', () => {
-  let v = elAns.value.replace(/\D+/g, '');
-  if (MAX_LEN) v = v.slice(0, MAX_LEN);
-  if (elAns.value !== v) elAns.value = v;
-});
-
+/* ===== Focus helpers (iOS + Android + Desktop) ===== */
 function ensureMobileKeyboard(el, fromGesture=false){
   const tryFocus = () => {
-    el.focus({ preventScroll: true }); // reduces jumpiness on iOS
-    if (fromGesture) { try { el.click(); } catch(e){} } // only during gestures
+    el.focus({ preventScroll: true });
+    if (fromGesture) { try { el.click(); } catch(e){} } // only inside user gesture
     try { el.setSelectionRange(el.value.length, el.value.length); } catch(e) {}
   };
   tryFocus();
   requestAnimationFrame(() => setTimeout(tryFocus, 0)); // post-layout retry
 }
 
-/* Avoid button stealing focus (keeps keyboard up) */
-['pointerdown','mousedown','touchstart'].forEach(ev=>{
-  elSubmit.addEventListener(ev, e => e.preventDefault());
+/* ===== Input filtering（僅保留數字；不強制數字鍵盤） ===== */
+const MAX_LEN = 6;
+elAns.addEventListener('input', () => {
+  let v = elAns.value.replace(/\D+/g, '');
+  if (MAX_LEN) v = v.slice(0, MAX_LEN);
+  if (elAns.value !== v) elAns.value = v;
 });
 
-/* Enter submits without blur */
-elAns.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    onSubmit(); // still a user gesture → good time to refocus
-  }
+/* ===== Avoid button stealing focus ===== */
+['pointerdown','mousedown','touchstart'].forEach(ev=>{
+  elSubmit.addEventListener(ev, e => e.preventDefault());
 });
 
 /* ===== Quiz logic ===== */
@@ -306,7 +298,7 @@ function showQuestion(){
   elQText.textContent = `${a} × ${b}`;
   startTimer();
   elAns.value = '';
-  // keep focus on every question (non-gesture path)
+  // keep focus every question; on mobile we try to keep keyboard up
   requestAnimationFrame(() => setTimeout(() => ensureMobileKeyboard(elAns, false), 0));
 }
 
@@ -329,8 +321,8 @@ function onSubmit(){
     state.allCorrect = false;
   }
   state.idx++;
-  // switch question inside the same user gesture → focus is allowed
   showQuestion();
+  // inside gesture: safe to refocus (mobile)
   ensureMobileKeyboard(elAns, true);
 }
 
@@ -342,7 +334,7 @@ function onTimeout(){
   if(!state.isReview) state.wrongQuestions.push([a,b]);
   state.allCorrect = false;
   state.idx++;
-  showQuestion(); // non-gesture path: we keep keyboard as much as possible
+  showQuestion();
 }
 
 function endQuiz(){
@@ -361,20 +353,19 @@ function endQuiz(){
   scroller.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-/* ===== CSV export ===== */
-function exportCsv(){
-  const rows=[['A','B','Correct','YourAns','Status'], ...state.results];
-  const csv = rows.map(r => r.map(x => String(x).replace(/"/g,'""'))
-                             .map(x => /[",\n]/.test(x)?`"${x}"`:x).join(',')).join('\n');
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'quiz_results.csv';
-  a.click();
-  URL.revokeObjectURL(a.href);
+/* ===== Keyboard submit (Desktop only) ===== */
+if (!isMobile) {
+  elAns.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onSubmit(); // desktop: Enter submits
+    }
+  });
 }
 
-/* ===== Start ===== */
+/* ===== Buttons ===== */
+elSubmit.addEventListener('click', onSubmit);
+
 elStart.addEventListener('click', () => {
   saveSettings();
   const fontSize = clampQ(parseInt(elFS.value,10) || 120);
@@ -399,10 +390,10 @@ elStart.addEventListener('click', () => {
   setView(true);
   showQuestion();
 
-  // first question: enforce focus within gesture
+  // first question: enforce focus within gesture (helps mobile)
   ensureMobileKeyboard(elAns, true);
 
-  // one-time safety: if the first attempt fails, focus again on next user action
+  // one-time safety: if first attempt fails, refocus on next user action
   const safety = () => {
     ensureMobileKeyboard(elAns, true);
     document.removeEventListener('pointerup', safety, {passive:true});
@@ -414,7 +405,18 @@ elStart.addEventListener('click', () => {
   document.addEventListener('click', safety, {passive:true, once:true});
 });
 
-/* ===== Export ===== */
+/* ===== CSV export ===== */
+function exportCsv(){
+  const rows=[['A','B','Correct','YourAns','Status'], ...state.results];
+  const csv = rows.map(r => r.map(x => String(x).replace(/"/g,'""'))
+                             .map(x => /[",\n]/.test(x)?`"${x}"`:x).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'quiz_results.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 elExport.addEventListener('click', exportCsv);
 
 /* ===== SW ===== */
