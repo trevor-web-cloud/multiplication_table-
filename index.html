@@ -14,36 +14,41 @@
 
   <style>
     :root {
-      --qfont: 120px;   /* question font cap */
-      --cfont: 60px;    /* controls font cap */
-      --vv-offset: 0px; /* iOS visualViewport offset */
-      --app-vh: 100vh;  /* fallback, will be set by JS to real viewport height */
+      --qfont: 120px;
+      --cfont: 60px;
+      --vv-offset: 0px;
+      --app-vh: 100vh;
     }
 
-    /* Global input font-size to avoid iOS auto-zoom */
+    /* NEW: global border-box to prevent width overflow */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    /* Global input rules to avoid iOS auto-zoom and overflow */
     input, textarea, select, button {
-      font-size: 16px !important;   /* ensure >=16px */
+      font-size: 16px !important;
+    }
+    input, textarea, select {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;   /* important fix for Chrome overflow */
     }
 
-    /* Lock the page; app is fixed to the screen to avoid jumps */
     html, body {
       height: 100%;
       overflow: hidden;
       overscroll-behavior: contain;
-      -webkit-text-size-adjust: 100%;     /* prevent iOS text auto-zoom */
+      -webkit-text-size-adjust: 100%;
       background: #f6f7fb;
     }
 
-    /* Fixed app wrapper using modern viewport units with fallbacks */
     .app {
-      position: fixed; inset: 0;          /* top:0; right:0; bottom:0; left:0 */
-      height: 100svh;                     /* small viewport height (iOS15+) */
-      height: calc(var(--app-vh));        /* fallback for older iOS */
-      transform: translateY(calc(-1 * var(--vv-offset))); /* iOS offset compensation */
+      position: fixed; inset: 0;
+      height: 100svh;
+      height: calc(var(--app-vh));
+      transform: translateY(calc(-1 * var(--vv-offset)));
       display: flex; justify-content: center;
     }
 
-    /* Only the inner container scrolls */
     .container {
       height: 100%;
       overflow-y: auto;
@@ -55,11 +60,11 @@
     .card { background:#fff; border-radius:16px; box-shadow:0 6px 24px rgba(0,0,0,.08); padding:20px; }
     h1    { margin:0 0 12px; font-size:clamp(20px,4vw,28px); }
 
-    /* Settings */
     .row { display:grid; grid-template-columns:220px 1fr; gap:12px; align-items:center; margin:10px 0; }
     .row input[type="text"], .row input[type="number"] {
-      padding:12px; border:1px solid #ddd; border-radius:12px; width:100%;
+      padding:12px; border:1px solid #ddd; border-radius:12px;
     }
+
     .actions { display:flex; gap:12px; margin-top:12px; }
     button {
       padding:14px 18px; border:0; border-radius:12px; background:#1a73e8; color:#fff;
@@ -68,14 +73,12 @@
     button.secondary { background:#e0e3eb; color:#222; }
     button:disabled { opacity:.6; cursor:not-allowed; }
 
-    /* Quiz */
     .card + .card { margin-top: 16px; }
     .quiz-wrap { position:relative; min-height:70%; display:grid; grid-template-rows:auto 1fr auto; }
     .timer     { position:absolute; top:10px; right:12px; font-size:clamp(14px,4vw,24px); color:#555; }
     .question  { display:flex; align-items:center; justify-content:center; text-align:center; padding:28px 12px; }
     .question span { font-weight:800; line-height:1.1; font-size:clamp(28px,12vw,var(--qfont)); }
 
-    /* Sticky answer bar */
     .answer-bar {
       position: sticky; bottom: 0;
       display:flex; gap:12px; justify-content:center; align-items:center;
@@ -85,7 +88,11 @@
     }
     .answer-bar input {
       padding:12px 14px; border:1px solid #ddd; border-radius:12px;
-      width:min(40ch,75%); text-align:center; min-height:48px;
+      min-height:48px; text-align:center;
+      /* ensure no overflow in Chrome */
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
     }
     .answer-bar button { min-width:120px; min-height:48px; }
 
@@ -102,10 +109,8 @@
   </style>
 </head>
 <body>
-  <!-- Fixed wrapper avoids window scroll/resizes causing jumps -->
   <div class="app" id="appRoot">
     <div class="container" id="appScroll">
-      <!-- Settings -->
       <div id="settings" class="card">
         <h1>Math Quiz Settings</h1>
         <div class="row">
@@ -137,7 +142,6 @@
         </div>
       </div>
 
-      <!-- Quiz -->
       <div id="quiz" class="card hidden">
         <div class="quiz-wrap">
           <div id="timer" class="timer">Time left: 0s</div>
@@ -153,14 +157,8 @@
 
   <script>
   (()=>{
-    // ---------- State ----------
-    const state = {
-      firstRunFinished:false, wrongQuestions:[], results:[],
-      questions:[], idx:0, timeLimit:5, timerId:null, timeLeft:0,
-      allCorrect:true, isReview:false, fontSize:120
-    };
+    const state = { firstRunFinished:false, wrongQuestions:[], results:[], questions:[], idx:0, timeLimit:5, timerId:null, timeLeft:0, allCorrect:true, isReview:false, fontSize:120 };
 
-    // ---------- Elements ----------
     const scroller  = document.getElementById('appScroll');
     const elSettings= document.getElementById('settings');
     const elQuiz    = document.getElementById('quiz');
@@ -177,9 +175,9 @@
     const elAns     = document.getElementById('ans');
     const elSubmit  = document.getElementById('submitBtn');
 
-    // ---------- Helpers ----------
     const clampQ = px => Math.min(120, Math.max(12, px));
     const clampC = px => Math.min(120, Math.max(12, Math.floor(px/2)));
+
     const setView = showQuiz => {
       elSettings.classList.toggle('hidden', showQuiz);
       elQuiz.classList.toggle('hidden', !showQuiz);
@@ -219,7 +217,6 @@
       return qs;
     }
 
-    // ---------- iOS/Android NO-JUMP helpers ----------
     function applyVh(){
       const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
       document.documentElement.style.setProperty('--app-vh', vh + 'px');
@@ -310,7 +307,6 @@
       URL.revokeObjectURL(a.href);
     }
 
-    // Events
     elStart.addEventListener('click', () => {
       state.timeLimit = Math.max(1, parseInt(elTL.value,10) || 5);
       const total = Math.max(1, parseInt(elTQ.value,10) || 10);
@@ -331,7 +327,6 @@
     elSubmit.addEventListener('click', onSubmit);
     elAns.addEventListener('keydown', e => { if(e.key === 'Enter') onSubmit(); });
 
-    // SW register
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
     }
