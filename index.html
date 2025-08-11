@@ -14,7 +14,7 @@
 
   <style>
     :root {
-      --quiz-font-size: 120px;   /* master size for question + answer + button */
+      --quiz-font-size: 120px;   /* master size for question + answer input */
       --vv-offset: 0px;
       --app-vh: 100vh;
     }
@@ -50,7 +50,7 @@
     h1    { margin:0 0 12px; font-size:clamp(22px,3.2vw,36px); }
 
     /* Inputs baseline to avoid iOS zoom */
-    input, textarea, select, button { font-size: 16px; } /* baseline; will be overridden below with !important */
+    input, textarea, select, button { font-size: 16px; } /* baseline; answer overrides below */
 
     .row { display:grid; grid-template-columns:260px 1fr; gap:12px; align-items:center; margin:10px 0; }
     .row label { font-size: clamp(14px, 1.4vw, 20px); }
@@ -81,7 +81,7 @@
       border-top-left-radius:12px; border-top-right-radius:12px;
     }
 
-    /* STRONG: Make input & button exactly same size as question */
+    /* Input = same as question; Button = 30% of question */
     .answer-bar input {
       font-size: var(--quiz-font-size) !important;
       line-height: 1.05;
@@ -92,10 +92,10 @@
       max-width: 100%;
     }
     .answer-bar button {
-      font-size: var(--quiz-font-size) !important;
+      font-size: calc(var(--quiz-font-size) * 0.3) !important;
       line-height: 1.05;
-      padding: 0.2em 0.6em;
-      min-height: 1.2em;
+      padding: 0.3em 0.8em;
+      min-height: 1.4em;
     }
 
     .hidden { display:none !important; }
@@ -320,7 +320,7 @@
       state.timeLimit= Math.max(1, parseInt(elTL.value,10) || 5);
       state.fontSize = fontSize;
 
-      // Apply unified size to question + answer + submit button
+      // Apply question/input size; button uses 30% via CSS
       document.documentElement.style.setProperty('--quiz-font-size', fontSize + 'px');
 
       state.isReview = !elReview.disabled && elReview.checked;
