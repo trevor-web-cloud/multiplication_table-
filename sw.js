@@ -1,13 +1,11 @@
 // Math Quiz PWA Service Worker (cache-first)
-const CACHE_VERSION = 'v1.4.3-desktopSubmit50-mobileQ50A25S16';
+const CACHE_VERSION = 'v1.4.5-r12-repack';
 const CACHE_NAME = `math-quiz-cache-${CACHE_VERSION}`;
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './sw.js',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  './sw.js'
 ];
 
 self.addEventListener('install', (event) => {
