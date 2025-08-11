@@ -2,60 +2,85 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <title>Math Quiz</title>
-
-  <!-- PWA: Manifest & Theme -->
-  <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#1a73e8">
-  <!-- iOS Add to Home Screen support -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
-
   <style>
-    :root{ --qfont:120px; --cfont:60px; }
-    *{box-sizing:border-box}
-    html,body{height:100%; overscroll-behavior: contain;}
-    body{
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      margin:0;background:#f6f7fb;color:#222;
-      padding-bottom:env(safe-area-inset-bottom,0px);
+    :root { --qfont:120px; --cfont:60px; }
+
+    /* B) Fix viewport jank: lock the page, scroll inside container */
+    html, body {
+      height: 100%;
+      overflow: hidden;              /* prevent whole-viewport jumps on keyboard */
+      overscroll-behavior: contain;
+      -webkit-text-size-adjust: 100%; /* avoid iOS zoom on inputs */
     }
-    .container{max-width:960px;margin:24px auto;padding:16px}
-    .card{background:#fff;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.08);padding:20px}
-    h1{margin:0 0 12px;font-size:clamp(20px,4vw,28px)}
 
-    .row{display:grid;grid-template-columns:220px 1fr;gap:12px;align-items:center;margin:10px 0}
-    .row input[type="text"],.row input[type="number"]{padding:12px;border:1px solid #ddd;border-radius:12px;font-size:clamp(16px,4vw,18px);width:100%}
-    .actions{display:flex;gap:12px;margin-top:12px}
-    button{padding:14px 18px;border:0;border-radius:12px;background:#1a73e8;color:#fff;font-size:clamp(16px,4.2vw,18px);cursor:pointer;min-height:44px}
-    button.secondary{background:#e0e3eb;color:#222}
-    button:disabled{opacity:.6;cursor:not-allowed}
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      margin: 0; background: #f6f7fb; color: #222;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
 
-    .quiz-wrap{position:relative;min-height:70vh;display:grid;grid-template-rows:auto 1fr auto}
-    .timer{position:absolute;top:10px;right:12px;font-size:clamp(14px,4vw,24px);color:#555}
-    .question{display:flex;align-items:center;justify-content:center;text-align:center;padding:28px 12px}
-    .question span{font-weight:800;line-height:1.1;font-size:clamp(28px,12vw,var(--qfont))}
-    .answer-bar{position:sticky;bottom:0;display:flex;gap:12px;justify-content:center;align-items:center;padding:12px;background:rgba(255,255,255,.85);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border-top-left-radius:12px;border-top-right-radius:12px}
-    .answer-bar input{font-size:clamp(18px,6vw,var(--cfont));padding:12px 14px;border:1px solid #ddd;border-radius:12px;width:min(40ch,75%);text-align:center;min-height:48px}
-    .answer-bar button{font-size:clamp(16px,4.5vw,var(--cfont));min-width:120px;min-height:48px}
+    /* App scroll container (the only scroll area) */
+    .container {
+      height: 100%;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      max-width: 960px; margin: 0 auto; padding: 16px;
+    }
 
-    .hidden{display:none !important}
-    .notice{margin-top:8px;color:#666;font-size:13px}
+    .card { background:#fff; border-radius:16px; box-shadow:0 6px 24px rgba(0,0,0,.08); padding:20px; }
+    h1    { margin:0 0 12px; font-size:clamp(20px,4vw,28px); }
 
-    @media (max-width:680px){
-      .row{grid-template-columns:1fr}
-      .row label{font-size:14px;color:#444}
-      .actions{flex-direction:column}
-      .actions button{width:100%}
-      .container{margin:12px auto;padding:8px}
-      .card{border-radius:14px;padding:16px}
+    /* Settings */
+    .row { display:grid; grid-template-columns:220px 1fr; gap:12px; align-items:center; margin:10px 0; }
+    .row input[type="text"], .row input[type="number"] {
+      padding:12px; border:1px solid #ddd; border-radius:12px; font-size:clamp(16px,4vw,18px); width:100%;
+    }
+    .actions { display:flex; gap:12px; margin-top:12px; }
+    button {
+      padding:14px 18px; border:0; border-radius:12px; background:#1a73e8; color:#fff;
+      font-size:clamp(16px,4.2vw,18px); cursor:pointer; min-height:44px;
+    }
+    button.secondary { background:#e0e3eb; color:#222; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+
+    /* Quiz */
+    .card + .card { margin-top: 16px; }
+    .quiz-wrap { position:relative; min-height:70vh; display:grid; grid-template-rows:auto 1fr auto; }
+    .timer     { position:absolute; top:10px; right:12px; font-size:clamp(14px,4vw,24px); color:#555; }
+    .question  { display:flex; align-items:center; justify-content:center; text-align:center; padding:28px 12px; }
+    .question span { font-weight:800; line-height:1.1; font-size:clamp(28px,12vw,var(--qfont)); }
+
+    /* Sticky answer bar inside the scroll container */
+    .answer-bar {
+      position: sticky; bottom: 0;
+      display:flex; gap:12px; justify-content:center; align-items:center;
+      padding:12px; background:rgba(255,255,255,.9);
+      -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      border-top-left-radius:12px; border-top-right-radius:12px;
+    }
+    .answer-bar input {
+      font-size:clamp(18px,6vw,var(--cfont));
+      padding:12px 14px; border:1px solid #ddd; border-radius:12px;
+      width:min(40ch,75%); text-align:center; min-height:48px;
+    }
+    .answer-bar button { font-size:clamp(16px,4.5vw,var(--cfont)); min-width:120px; min-height:48px; }
+
+    .hidden { display:none !important; }
+    .notice { margin-top:8px; color:#666; font-size:13px; }
+
+    @media (max-width: 680px) {
+      .row { grid-template-columns: 1fr; }
+      .row label { font-size:14px; color:#444; }
+      .actions { flex-direction: column; }
+      .actions button { width: 100%; }
+      .card { border-radius:14px; padding:16px; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="container" id="appScroll">
     <!-- Settings -->
     <div id="settings" class="card">
       <h1>Math Quiz Settings</h1>
@@ -94,6 +119,7 @@
         <div id="timer" class="timer">Time left: 0s</div>
         <div class="question"><span id="qText"></span></div>
         <div class="answer-bar">
+          <!-- Android + iOS numeric keyboards -->
           <input id="ans" type="tel" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" />
           <button id="submitBtn">Submit</button>
         </div>
@@ -103,32 +129,62 @@
 
   <script>
   (()=>{
-    // ---- App state ----
-    const state={firstRunFinished:false,wrongQuestions:[],results:[],questions:[],idx:0,timeLimit:5,timerId:null,timeLeft:0,allCorrect:true,isReview:false,fontSize:120};
+    // ---------- State ----------
+    const state = {
+      firstRunFinished:false, wrongQuestions:[], results:[],
+      questions:[], idx:0, timeLimit:5, timerId:null, timeLeft:0,
+      allCorrect:true, isReview:false, fontSize:120
+    };
 
-    // ---- Elements ----
-    const elSettings=document.getElementById('settings'), elQuiz=document.getElementById('quiz');
-    const elTL=document.getElementById('tl'), elTQ=document.getElementById('tq'), elSeries=document.getElementById('series'), elFS=document.getElementById('fs');
-    const elReview=document.getElementById('review'), elReviewTip=document.getElementById('reviewTip');
-    const elStart=document.getElementById('startBtn'), elExport=document.getElementById('exportBtn');
-    const elQText=document.getElementById('qText'), elTimer=document.getElementById('timer'), elAns=document.getElementById('ans'), elSubmit=document.getElementById('submitBtn');
+    // ---------- Elements ----------
+    const scroller   = document.getElementById('appScroll');
+    const elSettings = document.getElementById('settings');
+    const elQuiz     = document.getElementById('quiz');
+    const elTL       = document.getElementById('tl');
+    const elTQ       = document.getElementById('tq');
+    const elSeries   = document.getElementById('series');
+    const elFS       = document.getElementById('fs');
+    const elReview   = document.getElementById('review');
+    const elReviewTip= document.getElementById('reviewTip');
+    const elStart    = document.getElementById('startBtn');
+    const elExport   = document.getElementById('exportBtn');
+    const elQText    = document.getElementById('qText');
+    const elTimer    = document.getElementById('timer');
+    const elAns      = document.getElementById('ans');
+    const elSubmit   = document.getElementById('submitBtn');
 
-    // ---- Helpers ----
-    const rootStyle=document.documentElement.style;
-    const clampQ=px=>Math.min(120,Math.max(12,px)), clampC=px=>Math.min(120,Math.max(12,Math.floor(px/2)));
-    const setView=showQuiz=>{elSettings.classList.toggle('hidden',showQuiz);elQuiz.classList.toggle('hidden',!showQuiz)};
+    // ---------- Helpers ----------
+    const rootStyle = document.documentElement.style;
+    const clampQ = px => Math.min(120, Math.max(12, px));
+    const clampC = px => Math.min(120, Math.max(12, Math.floor(px/2)));
+    const setView = showQuiz => {
+      elSettings.classList.toggle('hidden', showQuiz);
+      elQuiz.classList.toggle('hidden', !showQuiz);
+      scroller.scrollTo({top: 0, behavior: 'instant'});
+    };
 
     function refreshReview(){
-      if(!state.firstRunFinished){elReview.disabled=true;elReviewTip.textContent='Review is available after the first quiz.';}
-      else if(!state.wrongQuestions.length){elReview.disabled=true;elReviewTip.textContent='No mistakes to review yet.';}
-      else{elReview.disabled=false;elReviewTip.textContent='Run a session using only the latest mistakes.';}
+      if(!state.firstRunFinished){
+        elReview.disabled = true;
+        elReviewTip.textContent = 'Review is available after the first quiz.';
+      } else if(!state.wrongQuestions.length){
+        elReview.disabled = true;
+        elReviewTip.textContent = 'No mistakes to review yet.';
+      } else {
+        elReview.disabled = false;
+        elReviewTip.textContent = 'Run a session using only the latest mistakes.';
+      }
     }
 
     function makeQuestions(total, seriesText){
-      const seriesNums=[];
-      if(String(seriesText).trim().toLowerCase()==='all'){for(let i=1;i<=9;i++) seriesNums.push(i);}
-      else{
-        for(const s of String(seriesText).split(',')){const n=parseInt(s.trim(),10); if(n>=1&&n<=9) seriesNums.push(n);}
+      const seriesNums = [];
+      if(String(seriesText).trim().toLowerCase()==='all'){
+        for(let i=1;i<=9;i++) seriesNums.push(i);
+      } else {
+        for(const s of String(seriesText).split(',')){
+          const n=parseInt(s.trim(),10);
+          if(n>=1 && n<=9) seriesNums.push(n);
+        }
         if(!seriesNums.length) for(let i=1;i<=9;i++) seriesNums.push(i);
       }
       const qs=[];
@@ -140,133 +196,142 @@
       return qs;
     }
 
-    // ---- iPhone: aggressive scroll-to-top when keyboard opens ----
-    function scrollToTopAggressive(){
-      const t0=Date.now();
-      const tryScroll=()=>{
-        window.scrollTo(0,0);
-        document.documentElement.scrollTop=0;
-        document.body.scrollTop=0;
-        if(Date.now()-t0<1200){ requestAnimationFrame(tryScroll); }
-      };
-      requestAnimationFrame(tryScroll);
-      setTimeout(()=>window.scrollTo(0,0),250);
-      setTimeout(()=>window.scrollTo(0,0),600);
+    // ---------- A) Delay + smooth scroll when keyboard opens ----------
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const isIOS     = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const SCROLL_DELAY_MS = isIOS ? 350 : 250; // iOS a bit longer
+    function scrollToTopSmooth(delayMs = SCROLL_DELAY_MS){
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          scroller.scrollTo({ top: 0, behavior: 'smooth' });
+        }, delayMs);
+      });
     }
 
     function setKeyboardOpen(open){
-      document.body.classList.toggle('keyboard-open',open);
-      if(open) scrollToTopAggressive();
+      if(open) scrollToTopSmooth();
     }
 
-    // ---- Timer / Quiz flow ----
+    // ---------- Timer / Quiz flow ----------
     function startTimer(){
       clearInterval(state.timerId);
-      state.timeLeft=state.timeLimit;
-      const t=`Time left: ${state.timeLeft}s`; elTimer.textContent=t;
-      state.timerId=setInterval(()=>{
+      state.timeLeft = state.timeLimit;
+      elTimer.textContent = `Time left: ${state.timeLeft}s`;
+      state.timerId = setInterval(() => {
         state.timeLeft--;
-        elTimer.textContent=`Time left: ${state.timeLeft}s`;
-        if(state.timeLeft<=0){ clearInterval(state.timerId); onTimeout(); }
-      },1000);
+        elTimer.textContent = `Time left: ${state.timeLeft}s`;
+        if(state.timeLeft <= 0){
+          clearInterval(state.timerId);
+          onTimeout();
+        }
+      }, 1000);
     }
 
     function showQuestion(){
-      if(state.idx>=state.questions.length) return endQuiz();
-      const [a,b]=state.questions[state.idx];
-      elQText.textContent=`${a} × ${b}`;
+      if(state.idx >= state.questions.length) return endQuiz();
+      const [a,b] = state.questions[state.idx];
+      elQText.textContent = `${a} × ${b}`;
       startTimer();
-      elAns.value='';
-      setTimeout(()=>elAns.focus({preventScroll:true}),50);
+      elAns.value = '';
+      setTimeout(() => elAns.focus({ preventScroll:true }), 50);
     }
 
     function onSubmit(){
-      if(state.idx>=state.questions.length) return;
-      const [a,b]=state.questions[state.idx];
-      const correct=a*b;
-      const raw=elAns.value.trim();
-      const val=parseInt(raw,10);
+      if(state.idx >= state.questions.length) return;
+      const [a,b] = state.questions[state.idx];
+      const correct = a*b;
+      const raw = elAns.value.trim();
+      const val = parseInt(raw,10);
       if(!Number.isFinite(val)){
         state.results.push([a,b,correct,raw,'Invalid']);
         if(!state.isReview) state.wrongQuestions.push([a,b]);
-        state.allCorrect=false;
-      }else if(val===correct){
+        state.allCorrect = false;
+      } else if(val === correct){
         state.results.push([a,b,correct,String(val),'OK']);
-      }else{
+      } else {
         state.results.push([a,b,correct,String(val),'Wrong']);
         if(!state.isReview) state.wrongQuestions.push([a,b]);
-        state.allCorrect=false;
+        state.allCorrect = false;
       }
       state.idx++; showQuestion();
     }
 
     function onTimeout(){
-      if(state.idx>=state.questions.length) return;
-      const [a,b]=state.questions[state.idx];
-      const correct=a*b;
+      if(state.idx >= state.questions.length) return;
+      const [a,b] = state.questions[state.idx];
+      const correct = a*b;
       state.results.push([a,b,correct,'','Timeout']);
       if(!state.isReview) state.wrongQuestions.push([a,b]);
-      state.allCorrect=false;
+      state.allCorrect = false;
       state.idx++; showQuestion();
     }
 
     function endQuiz(){
       clearInterval(state.timerId);
-      setKeyboardOpen(false);
-      if(!state.firstRunFinished) state.firstRunFinished=true;
-      if(state.isReview) state.wrongQuestions=[];
+      if(!state.firstRunFinished) state.firstRunFinished = true;
+      if(state.isReview) state.wrongQuestions = [];
       if(state.allCorrect) alert('Perfect! All answers are correct.');
       setView(false); refreshReview();
-      window.scrollTo({top:0,behavior:'smooth'});
+      scroller.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function exportCsv(){
-      const rows=[['A','B','Correct','YourAns','Status'],...state.results];
-      const csv=rows.map(r=>r.map(x=>String(x).replace(/"/g,'""')).map(x=>/[",\n]/.test(x)?`"${x}"`:x).join(',')).join('\n');
-      const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='quiz_results.csv'; a.click(); URL.revokeObjectURL(a.href);
+      const rows=[['A','B','Correct','YourAns','Status'], ...state.results];
+      const csv = rows.map(r => r.map(x => String(x).replace(/"/g,'""')).map(x => /[",\n]/.test(x)?`"${x}"`:x).join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'quiz_results.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
     }
 
-    // ---- Events ----
-    elStart.addEventListener('click',()=>{
-      state.timeLimit=Math.max(1,parseInt(elTL.value,10)||5);
-      const total=Math.max(1,parseInt(elTQ.value,10)||10);
-      state.fontSize=clampQ(parseInt(elFS.value,10)||24);
-      state.isReview=!elReview.disabled && elReview.checked;
+    // ---------- Events ----------
+    elStart.addEventListener('click', () => {
+      state.timeLimit = Math.max(1, parseInt(elTL.value,10) || 5);
+      const total = Math.max(1, parseInt(elTQ.value,10) || 10);
+      state.fontSize = clampQ(parseInt(elFS.value,10) || 24);
+      state.isReview = !elReview.disabled && elReview.checked;
 
-      rootStyle.setProperty('--qfont',state.fontSize+'px');
-      rootStyle.setProperty('--cfont',clampC(state.fontSize)+'px');
+      rootStyle.setProperty('--qfont', state.fontSize + 'px');
+      rootStyle.setProperty('--cfont', clampC(state.fontSize) + 'px');
 
-      state.results=[]; state.allCorrect=true;
-      state.questions=(state.isReview && state.wrongQuestions.length)?[...state.wrongQuestions]:makeQuestions(total,elSeries.value);
-      state.idx=0; setView(true); showQuestion();
+      state.results = []; state.allCorrect = true;
+      state.questions = (state.isReview && state.wrongQuestions.length) ? [...state.wrongQuestions] : makeQuestions(total, elSeries.value);
+      state.idx = 0;
+
+      setView(true);
+      showQuestion();
     });
 
-    elSubmit.addEventListener('click',onSubmit);
-    elAns.addEventListener('keydown',e=>{ if(e.key==='Enter') onSubmit(); });
+    elSubmit.addEventListener('click', onSubmit);
+    elAns.addEventListener('keydown', e => { if(e.key === 'Enter') onSubmit(); });
 
-    // Keyboard visibility hooks
-    elAns.addEventListener('focus',()=>{
+    // Keyboard visibility hooks (both platforms)
+    elAns.addEventListener('focus', () => {
       setKeyboardOpen(true);
-      setTimeout(scrollToTopAggressive,120); // safety after focus
+      setTimeout(() => scrollToTopSmooth(200), 120); // small extra nudge
     });
-    elAns.addEventListener('blur',()=>setKeyboardOpen(false));
+    elAns.addEventListener('blur',  () => setKeyboardOpen(false));
 
-    if(window.visualViewport){
-      let baseH=window.visualViewport.height;
-      window.visualViewport.addEventListener('resize',()=>{
-        const open=window.visualViewport.height < baseH - 120;
-        setKeyboardOpen(open);
-        if(open) scrollToTopAggressive();
-      }, { passive:true });
+    if (window.visualViewport) {
+      // On Android, url bar collapsing/expanding can also affect height
+      let baseH = window.visualViewport.height;
+
+      const onVVResize = () => {
+        const vh = window.visualViewport.height;
+        const open = vh < baseH - 120; // heuristics for keyboard open
+        if (open) scrollToTopSmooth(isIOS ? 300 : 200);
+      };
+
+      window.visualViewport.addEventListener('resize', onVVResize, { passive:true });
+      window.visualViewport.addEventListener('scroll',  onVVResize, { passive:true }); // some Androids emit scroll instead
     }
 
-    // ---- Register service worker for PWA/offline ----
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js');
-      });
-    }
+    // Orientation change can cause sudden jumps, recover gracefully
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => scroller.scrollTo({ top: 0, behavior: 'smooth' }), 200);
+    });
 
     refreshReview();
   })();
