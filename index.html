@@ -10,11 +10,10 @@
   <meta name="theme-color" content="#1a73e8">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
 
   <style>
     :root {
-      --quiz-font-size: 120px;   /* desktop master size */
+      --quiz-font-size: 120px;   /* desktop master size for question + answer input */
       --vv-offset: 0px;
       --app-vh: 100vh;
     }
@@ -58,32 +57,21 @@
       padding:14px; background:rgba(255,255,255,.9); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
       border-top-left-radius:12px; border-top-right-radius:12px; }
 
-    /* Desktop: Input = 100% (question), Button = 50% of question */
+    /* Desktop: Input = question; Button = 50% of question */
     .answer-bar input { font-size: var(--quiz-font-size) !important; line-height:1.05; padding:0.2em 0.35em; min-height:1.2em; text-align:center;
       width:min(12ch,60%); max-width:100%; }
     .answer-bar button { font-size: calc(var(--quiz-font-size) * 0.5) !important; line-height:1.05; padding:0.3em 0.8em; min-height:1.4em; }
 
-    /* Mobile (<=768px): Question = 50%, Answer = 25%, Submit = 16% (with clamps) */
+    /* Mobile (<=768px): Question 50%, Input 25%, Submit 16% */
     @media (max-width: 768px) {
-      .question span {
-        font-size: clamp(32px, 10vw, calc(var(--quiz-font-size) * 0.5)) !important;
-      }
-      .answer-bar input {
-        font-size: clamp(20px, 6vw, calc(var(--quiz-font-size) * 0.25)) !important;
-      }
-      .answer-bar button {
-        font-size: clamp(14px, 3.5vw, calc(var(--quiz-font-size) * 0.16)) !important;
-      }
+      .question span { font-size: clamp(32px, 10vw, calc(var(--quiz-font-size) * 0.5)) !important; }
+      .answer-bar input { font-size: clamp(20px, 6vw, calc(var(--quiz-font-size) * 0.25)) !important; }
+      .answer-bar button { font-size: clamp(14px, 3.5vw, calc(var(--quiz-font-size) * 0.16)) !important; }
     }
 
     .hidden { display:none !important; }
     .notice { margin-top:8px; color:#666; font-size:13px; }
-
-    @media (max-width: 680px) {
-      .row { grid-template-columns: 1fr; }
-      .actions button { width: 100%; }
-      .card { border-radius:14px; padding:16px; }
-    }
+    @media (max-width: 680px) { .row { grid-template-columns: 1fr; } .actions button { width: 100%; } .card { border-radius:14px; padding:16px; } }
   </style>
 </head>
 <body>
@@ -91,29 +79,11 @@
     <div class="container" id="appScroll">
       <div id="settings" class="card">
         <h1>Math Quiz Settings</h1>
-        <div class="row">
-          <label>Time Limit (sec):</label>
-          <input id="tl" type="number" min="1" value="5" inputmode="numeric" />
-        </div>
-        <div class="row">
-          <label>Total Questions:</label>
-          <input id="tq" type="number" min="1" value="10" inputmode="numeric" />
-        </div>
-        <div class="row">
-          <label>Series (comma or &quot;all&quot;):</label>
-          <input id="series" type="text" value="all" placeholder="e.g. 2,3,5 or all" />
-        </div>
-        <div class="row">
-          <label>Font Size:</label>
-          <input id="fs" type="number" min="12" value="120" inputmode="numeric" />
-        </div>
-        <div class="row">
-          <label>Review Mistakes:</label>
-          <div>
-            <input id="review" type="checkbox" />
-            <div id="reviewTip" class="notice"></div>
-          </div>
-        </div>
+        <div class="row"><label>Time Limit (sec):</label><input id="tl" type="number" min="1" value="5" inputmode="numeric" /></div>
+        <div class="row"><label>Total Questions:</label><input id="tq" type="number" min="1" value="10" inputmode="numeric" /></div>
+        <div class="row"><label>Series (comma or "all"):</label><input id="series" type="text" value="all" placeholder="e.g. 2,3,5 or all" /></div>
+        <div class="row"><label>Font Size:</label><input id="fs" type="number" min="12" value="120" inputmode="numeric" /></div>
+        <div class="row"><label>Review Mistakes:</label><div><input id="review" type="checkbox" /><div id="reviewTip" class="notice"></div></div></div>
         <div class="actions">
           <button id="startBtn">Start Quiz</button>
           <button id="exportBtn" class="secondary">Export Results (CSV)</button>
@@ -125,7 +95,7 @@
           <div id="timer" class="timer">Time left: 0s</div>
           <div class="question"><span id="qText"></span></div>
           <div class="answer-bar">
-            <input id="ans" type="tel" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" />
+            <input id="ans" type="tel" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" autocapitalize="off" autocorrect="off" />
             <button id="submitBtn">Submit</button>
           </div>
         </div>
@@ -133,263 +103,294 @@
     </div>
   </div>
 
-  <script>
-  (()=>{
-    // LS keys
-    const LS_SETTINGS_KEY = 'mq_settings_v1';
-    const LS_MISTAKES_KEY = 'mq_mistakes_v1';
+<script>
+(()=>{
+// ----- LS keys -----
+const LS_SETTINGS_KEY = 'mq_settings_v1';
+const LS_MISTAKES_KEY = 'mq_mistakes_v1';
 
-    // State
-    const state = {
-      firstRunFinished:false, wrongQuestions:[], results:[],
-      questions:[], idx:0, timeLimit:5, timerId:null, timeLeft:0,
-      allCorrect:true, isReview:false, fontSize:120
-    };
+// ----- State -----
+const state = {
+  firstRunFinished:false, wrongQuestions:[], results:[],
+  questions:[], idx:0, timeLimit:5, timerId:null, timeLeft:0,
+  allCorrect:true, isReview:false, fontSize:120
+};
 
-    // Elements
-    const scroller  = document.getElementById('appScroll');
-    const elSettings= document.getElementById('settings');
-    const elQuiz    = document.getElementById('quiz');
-    const elTL      = document.getElementById('tl');
-    const elTQ      = document.getElementById('tq');
-    const elSeries  = document.getElementById('series');
-    const elFS      = document.getElementById('fs');
-    const elReview  = document.getElementById('review');
-    const elReviewTip=document.getElementById('reviewTip');
-    const elStart   = document.getElementById('startBtn');
-    const elExport  = document.getElementById('exportBtn');
-    const elQText   = document.getElementById('qText');
-    const elTimer   = document.getElementById('timer');
-    const elAns     = document.getElementById('ans');
-    const elSubmit  = document.getElementById('submitBtn');
+// ----- Elements -----
+const scroller  = document.getElementById('appScroll');
+const elSettings= document.getElementById('settings');
+const elQuiz    = document.getElementById('quiz');
+const elTL      = document.getElementById('tl');
+const elTQ      = document.getElementById('tq');
+const elSeries  = document.getElementById('series');
+const elFS      = document.getElementById('fs');
+const elReview  = document.getElementById('review');
+const elReviewTip=document.getElementById('reviewTip');
+const elStart   = document.getElementById('startBtn');
+const elExport  = document.getElementById('exportBtn');
+const elQText   = document.getElementById('qText');
+const elTimer   = document.getElementById('timer');
+const elAns     = document.getElementById('ans');
+const elSubmit  = document.getElementById('submitBtn');
 
-    const clampQ = px => Math.min(120, Math.max(12, px));
+const clampQ = px => Math.min(120, Math.max(12, px));
 
-    const setView = showQuiz => {
-      elSettings.classList.toggle('hidden', showQuiz);
-      elQuiz.classList.toggle('hidden', !showQuiz);
-      scroller.scrollTo({top: 0, behavior: 'instant'});
-    };
+const setView = showQuiz => {
+  elSettings.classList.toggle('hidden', showQuiz);
+  elQuiz.classList.toggle('hidden', !showQuiz);
+  scroller.scrollTo({top: 0, behavior: 'instant'});
+};
 
-    function loadSettings(){
-      try{
-        const raw = localStorage.getItem(LS_SETTINGS_KEY);
-        if(!raw) return;
-        const s = JSON.parse(raw);
-        if (typeof s.timeLimit === 'number') elTL.value = s.timeLimit;
-        if (typeof s.total === 'number')     elTQ.value = s.total;
-        if (typeof s.series === 'string')    elSeries.value = s.series;
-        if (typeof s.fontSize === 'number')  elFS.value = s.fontSize;
-        if (typeof s.review === 'boolean')   elReview.checked = s.review;
-        const fs = clampQ(parseInt(elFS.value,10) || 120);
-        document.documentElement.style.setProperty('--quiz-font-size', fs + 'px');
-      }catch(e){ console.warn('loadSettings error', e); }
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem(LS_SETTINGS_KEY);
+    if(!raw) return;
+    const s = JSON.parse(raw);
+    if (typeof s.timeLimit === 'number') elTL.value = s.timeLimit;
+    if (typeof s.total === 'number')     elTQ.value = s.total;
+    if (typeof s.series === 'string')    elSeries.value = s.series;
+    if (typeof s.fontSize === 'number')  elFS.value = s.fontSize;
+    if (typeof s.review === 'boolean')   elReview.checked = s.review;
+    const fs = clampQ(parseInt(elFS.value,10) || 120);
+    document.documentElement.style.setProperty('--quiz-font-size', fs + 'px');
+  }catch(e){ console.warn('loadSettings error', e); }
+}
+
+function saveSettings(){
+  const s = {
+    timeLimit: Math.max(1, parseInt(elTL.value,10) || 5),
+    total:     Math.max(1, parseInt(elTQ.value,10) || 10),
+    series:    String(elSeries.value || 'all'),
+    fontSize:  clampQ(parseInt(elFS.value,10) || 120),
+    review:    !!elReview.checked
+  };
+  localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(s));
+}
+
+function loadMistakes(){
+  try{
+    const raw = localStorage.getItem(LS_MISTAKES_KEY);
+    if(!raw) return [];
+    const arr = JSON.parse(raw);
+    if(Array.isArray(arr)) return arr.filter(x => Array.isArray(x) && x.length===2);
+  }catch(e){ console.warn('loadMistakes error', e); }
+  return [];
+}
+function saveMistakes(arr){ try{ localStorage.setItem(LS_MISTAKES_KEY, JSON.stringify(arr)); }catch(e){} }
+function clearMistakes(){ try{ localStorage.removeItem(LS_MISTAKES_KEY); }catch(e){} }
+
+function refreshReview(){
+  const storedMistakes = loadMistakes();
+  const count = storedMistakes.length;
+  if(!state.firstRunFinished && count===0){
+    elReview.disabled = true;
+    elReviewTip.textContent = 'Review is available after your first quiz.';
+  } else if(count===0){
+    elReview.disabled = true;
+    elReviewTip.textContent = 'No mistakes to review.';
+  } else {
+    elReview.disabled = false;
+    elReviewTip.textContent = `Review ${count} mistake(s) from the last session.`;
+  }
+}
+
+function makeQuestions(total, seriesText){
+  const seriesNums = [];
+  if(String(seriesText).trim().toLowerCase()==='all'){
+    for(let i=1;i<=9;i++) seriesNums.push(i);
+  } else {
+    for(const s of String(seriesText).split(',')){
+      const n=parseInt(s.trim(),10);
+      if(n>=1 && n<=9) seriesNums.push(n);
     }
+    if(!seriesNums.length) for(let i=1;i<=9;i++) seriesNums.push(i);
+  }
+  const qs=[];
+  for(let i=0;i<total;i++){
+    const a=seriesNums[Math.floor(Math.random()*seriesNums.length)];
+    const b=Math.floor(Math.random()*9)+1;
+    qs.push([a,b]);
+  }
+  return qs;
+}
 
-    function saveSettings(){
-      const s = {
-        timeLimit: Math.max(1, parseInt(elTL.value,10) || 5),
-        total:     Math.max(1, parseInt(elTQ.value,10) || 10),
-        series:    String(elSeries.value || 'all'),
-        fontSize:  clampQ(parseInt(elFS.value,10) || 120),
-        review:    !!elReview.checked
-      };
-      localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(s));
-    }
+// No-jump sizing helpers
+function applyVh(){
+  const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+  document.documentElement.style.setProperty('--app-vh', vh + 'px');
+}
+function onVisualViewportChange(){
+  if (window.visualViewport) {
+    const off = window.visualViewport.offsetTop || 0;
+    document.documentElement.style.setProperty('--vv-offset', off + 'px');
+  }
+}
+applyVh(); onVisualViewportChange();
+window.addEventListener('resize', applyVh);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => { applyVh(); onVisualViewportChange(); }, {passive:true});
+  window.visualViewport.addEventListener('scroll',  () => { onVisualViewportChange(); }, {passive:true});
+}
 
-    function loadMistakes(){
-      try{
-        const raw = localStorage.getItem(LS_MISTAKES_KEY);
-        if(!raw) return [];
-        const arr = JSON.parse(raw);
-        if(Array.isArray(arr)) return arr.filter(x => Array.isArray(x) && x.length===2);
-      }catch(e){ console.warn('loadMistakes error', e); }
-      return [];
-    }
-    function saveMistakes(arr){ try{ localStorage.setItem(LS_MISTAKES_KEY, JSON.stringify(arr)); }catch(e){} }
-    function clearMistakes(){ try{ localStorage.removeItem(LS_MISTAKES_KEY); }catch(e){} }
-
-    function refreshReview(){
-      const storedMistakes = loadMistakes();
-      const count = storedMistakes.length;
-      if(!state.firstRunFinished && count===0){
-        elReview.disabled = true;
-        elReviewTip.textContent = 'Review is available after your first quiz.';
-      } else if(count===0){
-        elReview.disabled = true;
-        elReviewTip.textContent = 'No mistakes to review.';
-      } else {
-        elReview.disabled = false;
-        elReviewTip.textContent = `Review ${count} mistake(s) from the last session.`;
-      }
-    }
-
-    function makeQuestions(total, seriesText){
-      const seriesNums = [];
-      if(String(seriesText).trim().toLowerCase()==='all'){
-        for(let i=1;i<=9;i++) seriesNums.push(i);
-      } else {
-        for(const s of String(seriesText).split(',')){
-          const n=parseInt(s.trim(),10);
-          if(n>=1 && n<=9) seriesNums.push(n);
-        }
-        if(!seriesNums.length) for(let i=1;i<=9;i++) seriesNums.push(i);
-      }
-      const qs=[];
-      for(let i=0;i<total;i++){
-        const a=seriesNums[Math.floor(Math.random()*seriesNums.length)];
-        const b=Math.floor(Math.random()*9)+1;
-        qs.push([a,b]);
-      }
-      return qs;
-    }
-
-    // No-jump sizing helpers
-    function applyVh(){
-      const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
-      document.documentElement.style.setProperty('--app-vh', vh + 'px');
-    }
-    function onVisualViewportChange(){
-      if (window.visualViewport) {
-        const off = window.visualViewport.offsetTop || 0;
-        document.documentElement.style.setProperty('--vv-offset', off + 'px');
-      }
-    }
-    applyVh(); onVisualViewportChange();
-    window.addEventListener('resize', applyVh);
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', () => { applyVh(); onVisualViewportChange(); }, {passive:true});
-      window.visualViewport.addEventListener('scroll',  () => { onVisualViewportChange(); }, {passive:true});
-    }
-
-    function startTimer(){
+function startTimer(){
+  clearInterval(state.timerId);
+  state.timeLeft = state.timeLimit;
+  elTimer.textContent = `Time left: ${state.timeLeft}s`;
+  state.timerId = setInterval(() => {
+    state.timeLeft--;
+    elTimer.textContent = `Time left: ${state.timeLeft}s`;
+    if(state.timeLeft <= 0){
       clearInterval(state.timerId);
-      state.timeLeft = state.timeLimit;
-      elTimer.textContent = `Time left: ${state.timeLeft}s`;
-      state.timerId = setInterval(() => {
-        state.timeLeft--;
-        elTimer.textContent = `Time left: ${state.timeLeft}s`;
-        if(state.timeLeft <= 0){
-          clearInterval(state.timerId);
-          onTimeout();
-        }
-      }, 1000);
+      onTimeout();
     }
+  }, 1000);
+}
 
-    function showQuestion(){
-      if(state.idx >= state.questions.length) return endQuiz();
-      const [a,b] = state.questions[state.idx];
-      elQText.textContent = `${a} × ${b}`;
-      startTimer();
-      elAns.value = '';
-      setTimeout(() => elAns.focus({ preventScroll:true }), 50);
-    }
+function showQuestion(){
+  if(state.idx >= state.questions.length) return endQuiz();
+  const [a,b] = state.questions[state.idx];
+  elQText.textContent = `${a} × ${b}`;
+  startTimer();
+  elAns.value = '';
+  // Keep focus every question
+  requestAnimationFrame(()=>setTimeout(()=>ensureMobileKeyboard(elAns),0));
+}
 
-    function onSubmit(){
-      if(state.idx >= state.questions.length) return;
-      const [a,b] = state.questions[state.idx];
-      const correct = a*b;
-      const raw = elAns.value.trim();
-      const val = parseInt(raw,10);
-      if(!Number.isFinite(val)){
-        state.results.push([a,b,correct,raw,'Invalid']);
-        if(!state.isReview) state.wrongQuestions.push([a,b]);
-        state.allCorrect = false;
-      } else if(val === correct){
-        state.results.push([a,b,correct,String(val),'OK']);
-      } else {
-        state.results.push([a,b,correct,String(val),'Wrong']);
-        if(!state.isReview) state.wrongQuestions.push([a,b]);
-        state.allCorrect = false;
-      }
-      state.idx++; showQuestion();
-    }
+function onSubmit(){
+  if(state.idx >= state.questions.length) return;
+  const [a,b] = state.questions[state.idx];
+  const correct = a*b;
+  const raw = elAns.value.trim();
+  const val = parseInt(raw,10);
+  if(!Number.isFinite(val)){
+    state.results.push([a,b,correct,raw,'Invalid']);
+    if(!state.isReview) state.wrongQuestions.push([a,b]);
+    state.allCorrect = false;
+  } else if(val === correct){
+    state.results.push([a,b,correct,String(val),'OK']);
+  } else {
+    state.results.push([a,b,correct,String(val),'Wrong']);
+    if(!state.isReview) state.wrongQuestions.push([a,b]);
+    state.allCorrect = false;
+  }
+  state.idx++; showQuestion();
+}
 
-    function onTimeout(){
-      if(state.idx >= state.questions.length) return;
-      const [a,b] = state.questions[state.idx];
-      const correct = a*b;
-      state.results.push([a,b,correct,'','Timeout']);
-      if(!state.isReview) state.wrongQuestions.push([a,b]);
-      state.allCorrect = false;
-      state.idx++; showQuestion();
-    }
+function onTimeout(){
+  if(state.idx >= state.questions.length) return;
+  const [a,b] = state.questions[state.idx];
+  const correct = a*b;
+  state.results.push([a,b,correct,'','Timeout']);
+  if(!state.isReview) state.wrongQuestions.push([a,b]);
+  state.allCorrect = false;
+  state.idx++; showQuestion();
+}
 
-    function endQuiz(){
-      clearInterval(state.timerId);
-      if(!state.firstRunFinished) state.firstRunFinished = true;
+function endQuiz(){
+  clearInterval(state.timerId);
+  if(!state.firstRunFinished) state.firstRunFinished = true;
 
-      if(state.isReview){
-        if(state.allCorrect){
-          clearMistakes();
-        }
-      } else {
-        saveMistakes(state.wrongQuestions);
-      }
+  if(state.isReview){
+    if(state.allCorrect){ clearMistakes(); }
+  } else {
+    saveMistakes(state.wrongQuestions); // keep only last session
+  }
 
-      if(state.isReview) state.wrongQuestions = [];
-      if(state.allCorrect) alert('Perfect! All answers are correct.');
-      setView(false); refreshReview();
-      scroller.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+  if(state.isReview) state.wrongQuestions = [];
+  if(state.allCorrect) alert('Perfect! All answers are correct.');
+  setView(false); refreshReview();
+  scroller.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
-    function exportCsv(){
-      const rows=[['A','B','Correct','YourAns','Status'], ...state.results];
-      const csv = rows.map(r => r.map(x => String(x).replace(/"/g,'""')).map(x => /[",\n]/.test(x)?`"${x}"`:x).join(',')).join('\n');
-      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'quiz_results.csv';
-      a.click();
-      URL.revokeObjectURL(a.href);
-    }
+function exportCsv(){
+  const rows=[['A','B','Correct','YourAns','Status'], ...state.results];
+  const csv = rows.map(r => r.map(x => String(x).replace(/"/g,'""')).map(x => /[",\n]/.test(x)?`"${x}"`:x).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'quiz_results.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
-    ['input','change'].forEach(evt=>{
-      elTL.addEventListener(evt, saveSettings);
-      elTQ.addEventListener(evt, saveSettings);
-      elSeries.addEventListener(evt, saveSettings);
-      elFS.addEventListener(evt, e=>{
-        saveSettings();
-        const fs = clampQ(parseInt(elFS.value,10) || 120);
-        document.documentElement.style.setProperty('--quiz-font-size', fs + 'px');
-      });
-      elReview.addEventListener(evt, saveSettings);
-    });
+// ---- Mobile keyboard helpers (iOS + Android) ----
+function ensureMobileKeyboard(el){
+  const tryFocus = () => {
+    el.focus({ preventScroll: true });
+    el.click();
+    try { el.setSelectionRange(el.value.length, el.value.length); } catch(e) {}
+  };
+  tryFocus();
+  if (document.activeElement !== el) {
+    requestAnimationFrame(() => setTimeout(tryFocus, 0));
+  }
+}
 
-    elStart.addEventListener('click', () => {
-      saveSettings();
-      const fontSize = clampQ(parseInt(elFS.value,10) || 120);
-      const total    = Math.max(1, parseInt(elTQ.value,10) || 10);
-      state.timeLimit= Math.max(1, parseInt(elTL.value,10) || 5);
-      state.fontSize = fontSize;
-      document.documentElement.style.setProperty('--quiz-font-size', fontSize + 'px');
+// one-time safety focus if first attempt fails
+function armOneTimeTouchFocus(){
+  const handler = () => {
+    ensureMobileKeyboard(elAns);
+    document.removeEventListener('pointerup', handler, { passive:true });
+    document.removeEventListener('touchend', handler, { passive:true });
+    document.removeEventListener('click', handler, { passive:true });
+  };
+  document.addEventListener('pointerup', handler, { passive:true, once:true });
+  document.addEventListener('touchend', handler, { passive:true, once:true });
+  document.addEventListener('click', handler, { passive:true, once:true });
+}
 
-      const storedMistakes = loadMistakes();
-      const canReview = storedMistakes.length > 0;
-      state.isReview = !!elReview.checked && canReview;
+// ----- Settings persistence events -----
+['input','change'].forEach(evt=>{
+  elTL.addEventListener(evt, saveSettings);
+  elTQ.addEventListener(evt, saveSettings);
+  elSeries.addEventListener(evt, saveSettings);
+  elFS.addEventListener(evt, e=>{
+    saveSettings();
+    const fs = clampQ(parseInt(elFS.value,10) || 120);
+    document.documentElement.style.setProperty('--quiz-font-size', fs + 'px');
+  });
+  elReview.addEventListener(evt, saveSettings);
+});
 
-      state.results = []; state.allCorrect = true;
-      if(state.isReview){
-        state.questions = storedMistakes.map(p => [parseInt(p[0],10), parseInt(p[1],10)]);
-      } else {
-        state.questions = makeQuestions(total, elSeries.value);
-      }
-      state.wrongQuestions = [];
-      state.idx = 0;
-      setView(true);
-      showQuestion();
-    });
+// ----- Start button -----
+elStart.addEventListener('click', () => {
+  saveSettings();
+  const fontSize = clampQ(parseInt(elFS.value,10) || 120);
+  const total    = Math.max(1, parseInt(elTQ.value,10) || 10);
+  state.timeLimit= Math.max(1, parseInt(elTL.value,10) || 5);
+  state.fontSize = fontSize;
+  document.documentElement.style.setProperty('--quiz-font-size', fontSize + 'px');
 
-    elSubmit.addEventListener('click', onSubmit);
-    elAns.addEventListener('keydown', e => { if(e.key === 'Enter') onSubmit(); });
+  const storedMistakes = loadMistakes();
+  const canReview = storedMistakes.length > 0;
+  state.isReview = !!elReview.checked && canReview;
 
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
-    }
+  state.results = []; state.allCorrect = true;
+  if(state.isReview){
+    state.questions = storedMistakes.map(p => [parseInt(p[0],10), parseInt(p[1],10)]);
+  } else {
+    state.questions = makeQuestions(total, elSeries.value);
+  }
+  state.wrongQuestions = [];
+  state.idx = 0;
+  setView(true);
+  showQuestion();
 
-    loadSettings();
-    refreshReview();
-  })();
-  </script>
+  // ensure keyboard pops on first start
+  requestAnimationFrame(()=>setTimeout(()=>ensureMobileKeyboard(elAns),0));
+  armOneTimeTouchFocus();
+});
+
+elSubmit.addEventListener('click', onSubmit);
+elAns.addEventListener('keydown', e => { if(e.key === 'Enter') onSubmit(); });
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+}
+
+loadSettings();
+refreshReview();
+})();
+</script>
 </body>
 </html>
