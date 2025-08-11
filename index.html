@@ -36,7 +36,8 @@
     .card { background:#fff; border-radius:16px; box-shadow:0 6px 24px rgba(0,0,0,.08); padding:20px; }
     h1    { margin:0 0 12px; font-size:clamp(22px,3.2vw,36px); }
 
-    input, textarea, select, button { font-size: 16px; } /* baseline to avoid iOS zoom */
+    /* Baseline >=16px to avoid iOS zoom */
+    input, textarea, select, button { font-size: 16px; }
 
     .row { display:grid; grid-template-columns:260px 1fr; gap:12px; align-items:center; margin:10px 0; }
     .row label { font-size: clamp(14px, 1.4vw, 20px); }
@@ -95,8 +96,11 @@
           <div id="timer" class="timer">Time left: 0s</div>
           <div class="question"><span id="qText"></span></div>
           <div class="answer-bar">
-            <input id="ans" type="tel" inputmode="numeric" pattern="[0-9]*"
-                   autocomplete="one-time-code" autocapitalize="off" autocorrect="off" />
+            <!-- Softer numeric: text + inputmode=numeric; no OTP autocomplete -->
+            <input id="ans"
+                   type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done"
+                   autocapitalize="off" autocorrect="off" autocomplete="off"
+                   aria-label="Your answer" />
             <button id="submitBtn" type="button">Submit</button>
           </div>
         </div>
@@ -106,18 +110,18 @@
 
 <script>
 (()=>{
-// ----- LS keys -----
+/* ===== LocalStorage keys ===== */
 const LS_SETTINGS_KEY = 'mq_settings_v1';
 const LS_MISTAKES_KEY = 'mq_mistakes_v1';
 
-// ----- State -----
+/* ===== State ===== */
 const state = {
   firstRunFinished:false, wrongQuestions:[], results:[],
   questions:[], idx:0, timeLimit:5, timerId:null, timeLeft:0,
   allCorrect:true, isReview:false, fontSize:120
 };
 
-// ----- Elements -----
+/* ===== Elements ===== */
 const scroller  = document.getElementById('appScroll');
 const elSettings= document.getElementById('settings');
 const elQuiz    = document.getElementById('quiz');
@@ -134,7 +138,7 @@ const elTimer   = document.getElementById('timer');
 const elAns     = document.getElementById('ans');
 const elSubmit  = document.getElementById('submitBtn');
 
-// ----- Utils -----
+/* ===== Utils ===== */
 const clampQ = px => Math.min(120, Math.max(12, px));
 const setView = showQuiz => {
   elSettings.classList.toggle('hidden', showQuiz);
@@ -142,7 +146,7 @@ const setView = showQuiz => {
   scroller.scrollTo({top: 0, behavior: 'instant'});
 };
 
-// iOS no-jump viewport handling
+/* iOS no-jump viewport handling */
 function applyVh(){
   const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
   document.documentElement.style.setProperty('--app-vh', vh + 'px');
@@ -160,7 +164,7 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener('scroll',  () => { onVisualViewportChange(); }, {passive:true});
 }
 
-// ----- Settings load/save -----
+/* ===== Settings load/save ===== */
 function loadSettings(){
   try{
     const raw = localStorage.getItem(LS_SETTINGS_KEY);
@@ -197,7 +201,7 @@ function saveSettings(){
   elReview.addEventListener(evt, saveSettings);
 });
 
-// ----- Mistakes persistence -----
+/* ===== Mistakes persistence ===== */
 function loadMistakes(){
   try{
     const raw = localStorage.getItem(LS_MISTAKES_KEY);
@@ -225,21 +229,43 @@ function refreshReview(){
   }
 }
 
-// ----- Mobile keyboard: robust focus (iOS + Android) -----
+/* ===== Keyboard & focus helpers ===== */
+/* Softer numeric keyboard strategy:
+   - type="text" + inputmode="numeric"
+   - no OTP autocomplete
+   - digit-only filter
+*/
+const MAX_LEN = 6; // adjust if you want longer answers
+elAns.addEventListener('input', () => {
+  let v = elAns.value.replace(/\D+/g, '');
+  if (MAX_LEN) v = v.slice(0, MAX_LEN);
+  if (elAns.value !== v) elAns.value = v;
+});
+
 function ensureMobileKeyboard(el, fromGesture=false){
   const tryFocus = () => {
-    el.focus({ preventScroll: true });
-    // iOS 某些機型需要 click() 才會彈鍵盤
-    if (fromGesture) el.click();
+    el.focus({ preventScroll: true }); // reduces jumpiness on iOS
+    if (fromGesture) { try { el.click(); } catch(e){} } // only during gestures
     try { el.setSelectionRange(el.value.length, el.value.length); } catch(e) {}
   };
-  // 立即嘗試（若在使用者手勢中，成功率最高）
   tryFocus();
-  // 渲染完成後再補一次（避免題目切換導致的延遲）
-  requestAnimationFrame(() => setTimeout(tryFocus, 0));
+  requestAnimationFrame(() => setTimeout(tryFocus, 0)); // post-layout retry
 }
 
-// ----- Quiz logic -----
+/* Avoid button stealing focus (keeps keyboard up) */
+['pointerdown','mousedown','touchstart'].forEach(ev=>{
+  elSubmit.addEventListener(ev, e => e.preventDefault());
+});
+
+/* Enter submits without blur */
+elAns.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    onSubmit(); // still a user gesture → good time to refocus
+  }
+});
+
+/* ===== Quiz logic ===== */
 function makeQuestions(total, seriesText){
   const seriesNums = [];
   if(String(seriesText).trim().toLowerCase()==='all'){
@@ -279,10 +305,9 @@ function showQuestion(){
   const [a,b] = state.questions[state.idx];
   elQText.textContent = `${a} × ${b}`;
   startTimer();
-  // 不要 blur；只清空值
   elAns.value = '';
-  // 題目顯示後再嘗試聚焦（非使用者手勢時，盡量保持鍵盤不收）
-  requestAnimationFrame(() => setTimeout(() => ensureMobileKeyboard(elAns, /*fromGesture=*/false), 0));
+  // keep focus on every question (non-gesture path)
+  requestAnimationFrame(() => setTimeout(() => ensureMobileKeyboard(elAns, false), 0));
 }
 
 function onSubmit(){
@@ -304,9 +329,9 @@ function onSubmit(){
     state.allCorrect = false;
   }
   state.idx++;
-  // 同一次手勢中立刻換題並聚焦（最關鍵：iOS 視為手勢）
+  // switch question inside the same user gesture → focus is allowed
   showQuestion();
-  ensureMobileKeyboard(elAns, /*fromGesture=*/true);
+  ensureMobileKeyboard(elAns, true);
 }
 
 function onTimeout(){
@@ -317,8 +342,7 @@ function onTimeout(){
   if(!state.isReview) state.wrongQuestions.push([a,b]);
   state.allCorrect = false;
   state.idx++;
-  // 非手勢情境下也不要 blur，並盡力維持鍵盤
-  showQuestion();
+  showQuestion(); // non-gesture path: we keep keyboard as much as possible
 }
 
 function endQuiz(){
@@ -337,10 +361,11 @@ function endQuiz(){
   scroller.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// ----- CSV export -----
+/* ===== CSV export ===== */
 function exportCsv(){
   const rows=[['A','B','Correct','YourAns','Status'], ...state.results];
-  const csv = rows.map(r => r.map(x => String(x).replace(/"/g,'""')).map(x => /[",\n]/.test(x)?`"${x}"`:x).join(',')).join('\n');
+  const csv = rows.map(r => r.map(x => String(x).replace(/"/g,'""'))
+                             .map(x => /[",\n]/.test(x)?`"${x}"`:x).join(',')).join('\n');
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -349,20 +374,7 @@ function exportCsv(){
   URL.revokeObjectURL(a.href);
 }
 
-// ----- Avoid button stealing focus -----
-['pointerdown','mousedown','touchstart'].forEach(ev=>{
-  elSubmit.addEventListener(ev, e => e.preventDefault());
-});
-
-// ----- Keyboard submit without losing focus -----
-elAns.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    onSubmit(); // 仍屬使用者手勢 → 立即換題 + 聚焦
-  }
-});
-
-// ----- Start -----
+/* ===== Start ===== */
 elStart.addEventListener('click', () => {
   saveSettings();
   const fontSize = clampQ(parseInt(elFS.value,10) || 120);
@@ -387,10 +399,12 @@ elStart.addEventListener('click', () => {
   setView(true);
   showQuestion();
 
-  // 首題：在同一手勢中強制聚焦＋叫鍵盤，並掛一次性保險
-  ensureMobileKeyboard(elAns, /*fromGesture=*/true);
+  // first question: enforce focus within gesture
+  ensureMobileKeyboard(elAns, true);
+
+  // one-time safety: if the first attempt fails, focus again on next user action
   const safety = () => {
-    ensureMobileKeyboard(elAns, /*fromGesture=*/true);
+    ensureMobileKeyboard(elAns, true);
     document.removeEventListener('pointerup', safety, {passive:true});
     document.removeEventListener('touchend', safety, {passive:true});
     document.removeEventListener('click', safety, {passive:true});
@@ -400,15 +414,15 @@ elStart.addEventListener('click', () => {
   document.addEventListener('click', safety, {passive:true, once:true});
 });
 
-// ----- Export -----
+/* ===== Export ===== */
 elExport.addEventListener('click', exportCsv);
 
-// ----- SW -----
+/* ===== SW ===== */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
 }
 
-// Init
+/* ===== Init ===== */
 loadSettings();
 refreshReview();
 })();
