@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Math Quiz</title>
+<style>
+  :root { --max-question-font: 120; }
+  body { font-family: system-ui, Arial, sans-serif; margin: 0; background:#f6f7fb; color:#222; }
+  .container { max-width: 960px; margin: 24px auto; padding: 16px; }
+  .card { background: #fff; border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.08); padding: 20px; }
+  h1 { margin: 0 0 12px; font-size: 24px; }
+  .row { display: grid; grid-template-columns: 200px 1fr; gap: 12px; align-items: center; margin: 8px 0; }
+  .row input[type="text"], .row input[type="number"] { padding: 8px 10px; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; }
+  .actions { display: flex; gap: 12px; margin-top: 12px; }
+  button { padding: 10px 16px; border: 0; border-radius: 12px; background:#1a73e8; color:white; font-size: 16px; cursor:pointer; }
+  button.secondary { background:#e0e3eb; color:#222; }
+  button:disabled { opacity:.6; cursor:not-allowed; }
+  /* Quiz */
+  .quiz-wrap { position: relative; min-height: 50vh; display: grid; grid-template-rows: auto 1fr auto; }
+  .timer { position:absolute; top: 8px; right: 12px; font-size: clamp(12px, 2.2vw, 28px); color:#555; }
+  .question { display:flex; align-items:center; justify-content:center; text-align:center; padding: 32px 12px; }
+  .question span { font-weight: 700; line-height: 1.1; }
+  .answer-bar { display:flex; gap: 12px; justify-content:center; align-items:center; padding: 16px; }
+  .answer-bar input { font-size: clamp(14px, 2.2vw, 60px); padding: 10px 12px; border:1px solid #ddd; border-radius: 12px; width: min(40ch, 60%); text-align:center; }
+  .answer-bar button { font-size: clamp(14px, 2.2vw, 28px); }
+  .hidden { display:none !important; }
+  .notice { margin-top:8px; color:#666; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Settings -->
+  <div id="settings" class="card">
+    <h1>Math Quiz Settings</h1>
+    <div class="row">
+      <label>Time Limit (sec):</label>
+      <input id="tl" type="number" min="1" value="5" />
+    </div>
+    <div class="row">
+      <label>Total Questions:</label>
+      <input id="tq" type="number" min="1" value="10" />
+    </div>
+    <div class="row">
+      <label>Series (comma or &quot;all&quot;):</label>
+      <input id="series" type="text" value="all" placeholder="e.g. 2,3,5 or all" />
+    </div>
+    <div class="row">
+      <label>Font Size:</label>
+      <input id="fs" type="number" min="12" value="120" />
+    </div>
+    <div class="row">
+      <label>Review Mistakes:</label>
+      <div>
+        <input id="review" type="checkbox" />
+        <div id="reviewTip" class="notice"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="startBtn">Start Quiz</button>
+      <button id="exportBtn" class="secondary">Export Results (CSV)</button>
+    </div>
+  </div>
+
+  <!-- Quiz -->
+  <div id="quiz" class="card hidden">
+    <div class="quiz-wrap">
+      <div id="timer" class="timer">Time left: 0s</div>
+      <div class="question"><span id="qText"></span></div>
+      <div class="answer-bar">
+        <input id="ans" type="text" inputmode="numeric" autocomplete="off" />
+        <button id="submitBtn">Submit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // State
+  const state = {
+    firstRunFinished: false,
+    wrongQuestions: [],   // array of [a,b]
+    results: [],          // rows: [a,b,correct,yourAns,status]
+    questions: [],
+    idx: 0,
+    timeLimit: 5,
+    timerId: null,
+    timeLeft: 0,
+    allCorrect: true,
+    isReview: false,
+    fontSize: 120
+  };
+
+  // Elements
+  const elSettings = document.getElementById('settings');
+  const elQuiz = document.getElementById('quiz');
+  const elTL = document.getElementById('tl');
+  const elTQ = document.getElementById('tq');
+  const elSeries = document.getElementById('series');
+  const elFS = document.getElementById('fs');
+  const elReview = document.getElementById('review');
+  const elReviewTip = document.getElementById('reviewTip');
+  const elStart = document.getElementById('startBtn');
+  const elExport = document.getElementById('exportBtn');
+
+  const elQText = document.getElementById('qText');
+  const elTimer = document.getElementById('timer');
+  const elAns = document.getElementById('ans');
+  const elSubmit = document.getElementById('submitBtn');
+
+  // Helpers
+  function clampQuestionFont(px) {
+    return Math.min(120, Math.max(12, px));
+  }
+  function clampControlFont(px) {
+    return Math.min(120, Math.max(12, Math.floor(px/2)));
+  }
+  function setView(showQuiz) {
+    elSettings.classList.toggle('hidden', showQuiz);
+    elQuiz.classList.toggle('hidden', !showQuiz);
+  }
+  function refreshReviewCheckbox() {
+    if (!state.firstRunFinished) {
+      elReview.disabled = true;
+      elReviewTip.textContent = 'Review is available after the first quiz.';
+    } else if (!state.wrongQuestions.length) {
+      elReview.disabled = true;
+      elReviewTip.textContent = 'No mistakes to review yet.';
+    } else {
+      elReview.disabled = false;
+      elReviewTip.textContent = 'Run a session using only the latest mistakes.';
+    }
+  }
+  function makeQuestionsNormal(total, seriesText) {
+    const seriesNums = [];
+    if (String(seriesText).trim().toLowerCase() === 'all') {
+      for (let i=1;i<=9;i++) seriesNums.push(i);
+    } else {
+      for (const s of String(seriesText).split(',')) {
+        const n = parseInt(s.trim(),10);
+        if (n>=1 && n<=9) seriesNums.push(n);
+      }
+      if (!seriesNums.length) for (let i=1;i<=9;i++) seriesNums.push(i);
+    }
+    const qs = [];
+    for (let i=0;i<total;i++) {
+      const a = seriesNums[Math.floor(Math.random()*seriesNums.length)];
+      const b = Math.floor(Math.random()*9)+1;
+      qs.push([a,b]);
+    }
+    return qs;
+  }
+  function startTimer() {
+    clearInterval(state.timerId);
+    state.timeLeft = state.timeLimit;
+    elTimer.textContent = `Time left: ${state.timeLeft}s`;
+    state.timerId = setInterval(() => {
+      state.timeLeft--;
+      elTimer.textContent = `Time left: ${state.timeLeft}s`;
+      if (state.timeLeft <= 0) {
+        clearInterval(state.timerId);
+        onTimeout();
+      }
+    }, 1000);
+  }
+  function showQuestion() {
+    if (state.idx >= state.questions.length) return endQuiz();
+    const [a,b] = state.questions[state.idx];
+    elQText.textContent = `${a} × ${b}`;
+    startTimer();
+    elAns.value = '';
+    elAns.focus();
+  }
+  function onSubmit() {
+    if (state.idx >= state.questions.length) return;
+    const [a,b] = state.questions[state.idx];
+    const correct = a*b;
+    const raw = elAns.value.trim();
+    const val = parseInt(raw,10);
+    if (!Number.isFinite(val)) {
+      state.results.push([a,b,correct,raw,'Invalid']);
+      if (!state.isReview) state.wrongQuestions.push([a,b]);
+      state.allCorrect = false;
+    } else if (val === correct) {
+      state.results.push([a,b,correct,String(val),'OK']);
+    } else {
+      state.results.push([a,b,correct,String(val),'Wrong']);
+      if (!state.isReview) state.wrongQuestions.push([a,b]);
+      state.allCorrect = false;
+    }
+    state.idx++;
+    showQuestion();
+  }
+  function onTimeout() {
+    if (state.idx >= state.questions.length) return;
+    const [a,b] = state.questions[state.idx];
+    const correct = a*b;
+    state.results.push([a,b,correct,'','Timeout']);
+    if (!state.isReview) state.wrongQuestions.push([a,b]);
+    state.allCorrect = false;
+    state.idx++;
+    showQuestion();
+  }
+  function endQuiz() {
+    clearInterval(state.timerId);
+    // First run finished -> allow review next time
+    if (!state.firstRunFinished) state.firstRunFinished = true;
+    // After review session, clear consumed list
+    if (state.isReview) state.wrongQuestions = [];
+    if (state.allCorrect) {
+      alert('Perfect! All answers are correct.');
+    }
+    setView(false);
+    refreshReviewCheckbox();
+  }
+
+  // Export CSV
+  function exportCsv() {
+    const rows = [['A','B','Correct','YourAns','Status'], ...state.results];
+    const csv = rows.map(r => r.map(x => String(x).replace(/"/g,'""')).map(x => /[",\n]/.test(x)?`"${x}"`:x).join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'quiz_results.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  // Start
+  elStart.addEventListener('click', () => {
+    state.timeLimit = Math.max(1, parseInt(elTL.value,10) || 5);
+    const total = Math.max(1, parseInt(elTQ.value,10) || 10);
+    state.fontSize = clampQuestionFont(parseInt(elFS.value,10) || 24);
+    state.isReview = !elReview.disabled && elReview.checked;
+
+    // Dynamic font sizes
+    const qFont = state.fontSize;
+    const cFont = clampControlFont(state.fontSize);
+    elQText.style.fontSize = `${qFont}px`;
+    elAns.style.fontSize = `${cFont}px`;
+    elSubmit.style.fontSize = `${cFont}px`;
+
+    state.results = [];
+    state.allCorrect = true;
+    if (state.isReview && state.wrongQuestions.length) {
+      state.questions = [...state.wrongQuestions];
+    } else {
+      state.questions = makeQuestionsNormal(total, elSeries.value);
+    }
+    state.idx = 0;
+
+    setView(true);
+    showQuestion();
+  });
+
+  elSubmit.addEventListener('click', onSubmit);
+  elAns.addEventListener('keydown', (e) => { if (e.key === 'Enter') onSubmit(); });
+  elExport.addEventListener('click', exportCsv);
+
+  refreshReviewCheckbox();
+})();
+</script>
+</body>
+</html>
