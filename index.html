@@ -14,33 +14,27 @@
 
   <style>
     :root {
-      --qfont: 120px;
-      --cfont: 60px;
+      --qfont: 120px;             /* legacy var */
+      --quiz-font-size: 120px;    /* question size actual */
+      --cfont: 60px;              /* legacy var */
+      --ctrl-font-size: 60px;     /* answer/input/button size */
       --vv-offset: 0px;
       --app-vh: 100vh;
     }
 
-    /* NEW: global border-box to prevent width overflow */
+    /* Global layout */
     *, *::before, *::after { box-sizing: border-box; }
-
-    /* Global input rules to avoid iOS auto-zoom and overflow */
-    input, textarea, select, button {
-      font-size: 16px !important;
-    }
-    input, textarea, select {
-      width: 100%;
-      max-width: 100%;
-      box-sizing: border-box;   /* important fix for Chrome overflow */
-    }
-
     html, body {
       height: 100%;
       overflow: hidden;
       overscroll-behavior: contain;
       -webkit-text-size-adjust: 100%;
       background: #f6f7fb;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: #222;
     }
 
+    /* Fixed app wrapper (no-jump) */
     .app {
       position: fixed; inset: 0;
       height: 100svh;
@@ -49,60 +43,65 @@
       display: flex; justify-content: center;
     }
 
+    /* Scrolling container */
     .container {
       height: 100%;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       max-width: 960px; margin: 0 auto; padding: 16px;
-      background: #f6f7fb; color: #222;
     }
 
     .card { background:#fff; border-radius:16px; box-shadow:0 6px 24px rgba(0,0,0,.08); padding:20px; }
-    h1    { margin:0 0 12px; font-size:clamp(20px,4vw,28px); }
+    h1    { margin:0 0 12px; font-size:clamp(22px,3.2vw,36px); }
 
-    .row { display:grid; grid-template-columns:220px 1fr; gap:12px; align-items:center; margin:10px 0; }
-    .row input[type="text"], .row input[type="number"] {
-      padding:12px; border:1px solid #ddd; border-radius:12px;
-    }
+    /* Settings form */
+    .row { display:grid; grid-template-columns:260px 1fr; gap:12px; align-items:center; margin:10px 0; }
+    .row label { font-size: clamp(14px, 1.4vw, 20px); }
+    input, textarea, select, button { font-size: 16px !important; }  /* iOS anti-zoom */
+    input, textarea, select { width:100%; max-width:100%; border:1px solid #ddd; border-radius:12px; padding:12px; }
 
-    .actions { display:flex; gap:12px; margin-top:12px; }
-    button {
-      padding:14px 18px; border:0; border-radius:12px; background:#1a73e8; color:#fff;
-      cursor:pointer; min-height:44px;
-    }
+    .actions { display:flex; gap:12px; margin-top:12px; flex-wrap: wrap; }
+    button { padding:14px 18px; border:0; border-radius:12px; background:#1a73e8; color:#fff; cursor:pointer; min-height:44px; }
     button.secondary { background:#e0e3eb; color:#222; }
     button:disabled { opacity:.6; cursor:not-allowed; }
 
+    /* Quiz area */
     .card + .card { margin-top: 16px; }
     .quiz-wrap { position:relative; min-height:70%; display:grid; grid-template-rows:auto 1fr auto; }
-    .timer     { position:absolute; top:10px; right:12px; font-size:clamp(14px,4vw,24px); color:#555; }
+    .timer     { position:absolute; top:10px; right:12px; font-size: clamp(14px, 2vw, 28px); color:#555; }
     .question  { display:flex; align-items:center; justify-content:center; text-align:center; padding:28px 12px; }
-    .question span { font-weight:800; line-height:1.1; font-size:clamp(28px,12vw,var(--qfont)); }
+    .question span {
+      font-weight:800; line-height:1.1;
+      /* desktop & mobile: prefer viewport scaling but cap by setting */
+      font-size: clamp(28px, 12vw, var(--quiz-font-size));
+      /* ensure the question doesn't shrink due to flex */
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
 
     .answer-bar {
       position: sticky; bottom: 0;
-      display:flex; gap:12px; justify-content:center; align-items:center;
-      padding:12px; background:rgba(255,255,255,.9);
+      display:flex; gap:16px; justify-content:center; align-items:center;
+      padding:14px; background:rgba(255,255,255,.9);
       -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
       border-top-left-radius:12px; border-top-right-radius:12px;
     }
     .answer-bar input {
-      padding:12px 14px; border:1px solid #ddd; border-radius:12px;
-      min-height:48px; text-align:center;
-      /* ensure no overflow in Chrome */
-      width: 100%;
-      max-width: 100%;
-      box-sizing: border-box;
+      min-height:56px; text-align:center;
+      /* large on desktop, still bounded on small screens */
+      font-size: clamp(16px, 4.5vw, var(--ctrl-font-size));
+      padding: 14px 18px;
     }
-    .answer-bar button { min-width:120px; min-height:48px; }
+    .answer-bar button {
+      min-width:140px; min-height:56px;
+      font-size: clamp(16px, 2.6vw, var(--ctrl-font-size));
+    }
 
     .hidden { display:none !important; }
     .notice { margin-top:8px; color:#666; font-size:13px; }
 
     @media (max-width: 680px) {
       .row { grid-template-columns: 1fr; }
-      .row label { font-size:14px; color:#444; }
-      .actions { flex-direction: column; }
       .actions button { width: 100%; }
       .card { border-radius:14px; padding:16px; }
     }
@@ -157,8 +156,14 @@
 
   <script>
   (()=>{
-    const state = { firstRunFinished:false, wrongQuestions:[], results:[], questions:[], idx:0, timeLimit:5, timerId:null, timeLeft:0, allCorrect:true, isReview:false, fontSize:120 };
+    // State
+    const state = {
+      firstRunFinished:false, wrongQuestions:[], results:[],
+      questions:[], idx:0, timeLimit:5, timerId:null, timeLeft:0,
+      allCorrect:true, isReview:false, fontSize:120
+    };
 
+    // Elements
     const scroller  = document.getElementById('appScroll');
     const elSettings= document.getElementById('settings');
     const elQuiz    = document.getElementById('quiz');
@@ -175,8 +180,9 @@
     const elAns     = document.getElementById('ans');
     const elSubmit  = document.getElementById('submitBtn');
 
+    // Helpers
     const clampQ = px => Math.min(120, Math.max(12, px));
-    const clampC = px => Math.min(120, Math.max(12, Math.floor(px/2)));
+    const clampC = px => Math.min(120, Math.max(16, Math.floor(px*0.6))); // desktop bigger but keep >=16
 
     const setView = showQuiz => {
       elSettings.classList.toggle('hidden', showQuiz);
@@ -217,6 +223,7 @@
       return qs;
     }
 
+    // No-jump sizing helpers
     function applyVh(){
       const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
       document.documentElement.style.setProperty('--app-vh', vh + 'px');
@@ -307,13 +314,19 @@
       URL.revokeObjectURL(a.href);
     }
 
+    // Start button
     elStart.addEventListener('click', () => {
       state.timeLimit = Math.max(1, parseInt(elTL.value,10) || 5);
       const total = Math.max(1, parseInt(elTQ.value,10) || 10);
-      state.fontSize = clampQ(parseInt(elFS.value,10) || 24);
-      const controlsFont = clampC(state.fontSize);
-      document.documentElement.style.setProperty('--qfont', state.fontSize + 'px');
-      document.documentElement.style.setProperty('--cfont', controlsFont + 'px');
+      state.fontSize = clampQ(parseInt(elFS.value,10) || 120);
+      const ctrlFont = clampC(state.fontSize);
+
+      // Apply font variables for both desktop & mobile
+      document.documentElement.style.setProperty('--qfont', state.fontSize + 'px');          // legacy
+      document.documentElement.style.setProperty('--quiz-font-size', state.fontSize + 'px'); // used by .question
+      document.documentElement.style.setProperty('--cfont', ctrlFont + 'px');                // legacy
+      document.documentElement.style.setProperty('--ctrl-font-size', ctrlFont + 'px');       // inputs/buttons
+
       state.isReview = !elReview.disabled && elReview.checked;
 
       state.results = []; state.allCorrect = true;
@@ -327,6 +340,7 @@
     elSubmit.addEventListener('click', onSubmit);
     elAns.addEventListener('keydown', e => { if(e.key === 'Enter') onSubmit(); });
 
+    // SW
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
     }
