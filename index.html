@@ -142,7 +142,7 @@ const setView = showQuiz => {
   scroller.scrollTo({top: 0, behavior: 'instant'});
 };
 
-// Keep viewport steady on iOS (no-jump)
+// iOS no-jump viewport handling
 function applyVh(){
   const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
   document.documentElement.style.setProperty('--app-vh', vh + 'px');
@@ -225,6 +225,20 @@ function refreshReview(){
   }
 }
 
+// ----- Mobile keyboard: robust focus (iOS + Android) -----
+function ensureMobileKeyboard(el, fromGesture=false){
+  const tryFocus = () => {
+    el.focus({ preventScroll: true });
+    // iOS 某些機型需要 click() 才會彈鍵盤
+    if (fromGesture) el.click();
+    try { el.setSelectionRange(el.value.length, el.value.length); } catch(e) {}
+  };
+  // 立即嘗試（若在使用者手勢中，成功率最高）
+  tryFocus();
+  // 渲染完成後再補一次（避免題目切換導致的延遲）
+  requestAnimationFrame(() => setTimeout(tryFocus, 0));
+}
+
 // ----- Quiz logic -----
 function makeQuestions(total, seriesText){
   const seriesNums = [];
@@ -260,26 +274,15 @@ function startTimer(){
   }, 1000);
 }
 
-function ensureMobileKeyboard(el){
-  const tryFocus = () => {
-    el.focus({ preventScroll: true });
-    el.click(); // needed on some iOS
-    try { el.setSelectionRange(el.value.length, el.value.length); } catch(e) {}
-  };
-  tryFocus();
-  if (document.activeElement !== el) {
-    requestAnimationFrame(() => setTimeout(tryFocus, 0));
-  }
-}
-
 function showQuestion(){
   if(state.idx >= state.questions.length) return endQuiz();
   const [a,b] = state.questions[state.idx];
   elQText.textContent = `${a} × ${b}`;
   startTimer();
+  // 不要 blur；只清空值
   elAns.value = '';
-  // Auto-focus & show keyboard on every question
-  requestAnimationFrame(() => setTimeout(() => ensureMobileKeyboard(elAns), 0));
+  // 題目顯示後再嘗試聚焦（非使用者手勢時，盡量保持鍵盤不收）
+  requestAnimationFrame(() => setTimeout(() => ensureMobileKeyboard(elAns, /*fromGesture=*/false), 0));
 }
 
 function onSubmit(){
@@ -288,6 +291,7 @@ function onSubmit(){
   const correct = a*b;
   const raw = elAns.value.trim();
   const val = parseInt(raw,10);
+
   if(!Number.isFinite(val)){
     state.results.push([a,b,correct,raw,'Invalid']);
     if(!state.isReview) state.wrongQuestions.push([a,b]);
@@ -299,7 +303,10 @@ function onSubmit(){
     if(!state.isReview) state.wrongQuestions.push([a,b]);
     state.allCorrect = false;
   }
-  state.idx++; showQuestion();
+  state.idx++;
+  // 同一次手勢中立刻換題並聚焦（最關鍵：iOS 視為手勢）
+  showQuestion();
+  ensureMobileKeyboard(elAns, /*fromGesture=*/true);
 }
 
 function onTimeout(){
@@ -309,7 +316,9 @@ function onTimeout(){
   state.results.push([a,b,correct,'','Timeout']);
   if(!state.isReview) state.wrongQuestions.push([a,b]);
   state.allCorrect = false;
-  state.idx++; showQuestion();
+  state.idx++;
+  // 非手勢情境下也不要 blur，並盡力維持鍵盤
+  showQuestion();
 }
 
 function endQuiz(){
@@ -341,7 +350,7 @@ function exportCsv(){
 }
 
 // ----- Avoid button stealing focus -----
-['pointerdown','mousedown'].forEach(ev=>{
+['pointerdown','mousedown','touchstart'].forEach(ev=>{
   elSubmit.addEventListener(ev, e => e.preventDefault());
 });
 
@@ -349,11 +358,11 @@ function exportCsv(){
 elAns.addEventListener('keydown', e => {
   if (e.key === 'Enter') {
     e.preventDefault();
-    onSubmit();
+    onSubmit(); // 仍屬使用者手勢 → 立即換題 + 聚焦
   }
 });
 
-// ----- Start button -----
+// ----- Start -----
 elStart.addEventListener('click', () => {
   saveSettings();
   const fontSize = clampQ(parseInt(elFS.value,10) || 120);
@@ -374,13 +383,14 @@ elStart.addEventListener('click', () => {
   }
   state.wrongQuestions = [];
   state.idx = 0;
+
   setView(true);
   showQuestion();
 
-  // First-time safety focus (within user gesture)
-  requestAnimationFrame(()=>setTimeout(()=>ensureMobileKeyboard(elAns),0));
+  // 首題：在同一手勢中強制聚焦＋叫鍵盤，並掛一次性保險
+  ensureMobileKeyboard(elAns, /*fromGesture=*/true);
   const safety = () => {
-    ensureMobileKeyboard(elAns);
+    ensureMobileKeyboard(elAns, /*fromGesture=*/true);
     document.removeEventListener('pointerup', safety, {passive:true});
     document.removeEventListener('touchend', safety, {passive:true});
     document.removeEventListener('click', safety, {passive:true});
