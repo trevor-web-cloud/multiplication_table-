@@ -20,12 +20,17 @@
       --app-vh: 100vh;  /* fallback, will be set by JS to real viewport height */
     }
 
+    /* Global input font-size to avoid iOS auto-zoom */
+    input, textarea, select, button {
+      font-size: 16px !important;   /* ensure >=16px */
+    }
+
     /* Lock the page; app is fixed to the screen to avoid jumps */
     html, body {
       height: 100%;
       overflow: hidden;
       overscroll-behavior: contain;
-      -webkit-text-size-adjust: 100%;     /* prevent iOS auto-zoom on inputs */
+      -webkit-text-size-adjust: 100%;     /* prevent iOS text auto-zoom */
       background: #f6f7fb;
     }
 
@@ -53,13 +58,12 @@
     /* Settings */
     .row { display:grid; grid-template-columns:220px 1fr; gap:12px; align-items:center; margin:10px 0; }
     .row input[type="text"], .row input[type="number"] {
-      padding:12px; border:1px solid #ddd; border-radius:12px; font-size:16px; /* >=16px avoid iOS zoom */
-      width:100%;
+      padding:12px; border:1px solid #ddd; border-radius:12px; width:100%;
     }
     .actions { display:flex; gap:12px; margin-top:12px; }
     button {
       padding:14px 18px; border:0; border-radius:12px; background:#1a73e8; color:#fff;
-      font-size:16px; cursor:pointer; min-height:44px;
+      cursor:pointer; min-height:44px;
     }
     button.secondary { background:#e0e3eb; color:#222; }
     button:disabled { opacity:.6; cursor:not-allowed; }
@@ -80,11 +84,10 @@
       border-top-left-radius:12px; border-top-right-radius:12px;
     }
     .answer-bar input {
-      font-size:16px; /* >=16px avoid iOS zoom */
       padding:12px 14px; border:1px solid #ddd; border-radius:12px;
       width:min(40ch,75%); text-align:center; min-height:48px;
     }
-    .answer-bar button { font-size:16px; min-width:120px; min-height:48px; }
+    .answer-bar button { min-width:120px; min-height:48px; }
 
     .hidden { display:none !important; }
     .notice { margin-top:8px; color:#666; font-size:13px; }
@@ -158,7 +161,6 @@
     };
 
     // ---------- Elements ----------
-    const appRoot   = document.getElementById('appRoot');
     const scroller  = document.getElementById('appScroll');
     const elSettings= document.getElementById('settings');
     const elQuiz    = document.getElementById('quiz');
@@ -176,7 +178,6 @@
     const elSubmit  = document.getElementById('submitBtn');
 
     // ---------- Helpers ----------
-    const rootStyle = document.documentElement.style;
     const clampQ = px => Math.min(120, Math.max(12, px));
     const clampC = px => Math.min(120, Math.max(12, Math.floor(px/2)));
     const setView = showQuiz => {
@@ -218,24 +219,17 @@
       return qs;
     }
 
-    // ---------- iOS/Android "NO JUMP" viewport lock ----------
-    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
+    // ---------- iOS/Android NO-JUMP helpers ----------
     function applyVh(){
-      // Use visual viewport height to set a stable app height
       const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
       document.documentElement.style.setProperty('--app-vh', vh + 'px');
     }
-
     function onVisualViewportChange(){
-      // Compensate iOS offsetTop so the fixed app doesn't appear to move
       if (window.visualViewport) {
         const off = window.visualViewport.offsetTop || 0;
         document.documentElement.style.setProperty('--vv-offset', off + 'px');
       }
     }
-
-    // Initialize + bind
     applyVh(); onVisualViewportChange();
     window.addEventListener('resize', applyVh);
     if (window.visualViewport) {
@@ -243,12 +237,6 @@
       window.visualViewport.addEventListener('scroll',  () => { onVisualViewportChange(); }, {passive:true});
     }
 
-    // ---------- Optional: smooth nudge inside scroller after focus ----------
-    function smoothTop(delay=250){
-      requestAnimationFrame(()=> setTimeout(()=> scroller.scrollTo({top:0, behavior:'smooth'}), delay));
-    }
-
-    // ---------- Timer / Quiz flow ----------
     function startTimer(){
       clearInterval(state.timerId);
       state.timeLeft = state.timeLimit;
@@ -322,15 +310,15 @@
       URL.revokeObjectURL(a.href);
     }
 
-    // ---------- Events ----------
+    // Events
     elStart.addEventListener('click', () => {
       state.timeLimit = Math.max(1, parseInt(elTL.value,10) || 5);
       const total = Math.max(1, parseInt(elTQ.value,10) || 10);
       state.fontSize = clampQ(parseInt(elFS.value,10) || 24);
-      state.isReview = !elReview.disabled && elReview.checked;
-
+      const controlsFont = clampC(state.fontSize);
       document.documentElement.style.setProperty('--qfont', state.fontSize + 'px');
-      document.documentElement.style.setProperty('--cfont', clampC(state.fontSize) + 'px');
+      document.documentElement.style.setProperty('--cfont', controlsFont + 'px');
+      state.isReview = !elReview.disabled && elReview.checked;
 
       state.results = []; state.allCorrect = true;
       state.questions = (state.isReview && state.wrongQuestions.length) ? [...state.wrongQuestions] : makeQuestions(total, elSeries.value);
@@ -343,11 +331,7 @@
     elSubmit.addEventListener('click', onSubmit);
     elAns.addEventListener('keydown', e => { if(e.key === 'Enter') onSubmit(); });
 
-    // Focus/blur: keep window fixed, optionally nudge internal scroller only
-    elAns.addEventListener('focus', () => smoothTop(200));
-    elAns.addEventListener('blur',  () => {});
-
-    // Register SW
+    // SW register
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
     }
