@@ -2,52 +2,106 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<!-- Mobile viewport optimization -->
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Math Quiz</title>
 <style>
-  :root { --max-question-font: 120; }
-  body { font-family: system-ui, Arial, sans-serif; margin: 0; background:#f6f7fb; color:#222; }
+  :root {
+    /* Dynamic font sizes (will be updated by JavaScript) */
+    --qfont: 120px;  /* Question font size */
+    --cfont: 60px;   /* Controls font size */
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    margin: 0; background:#f6f7fb; color:#222;
+    padding-bottom: env(safe-area-inset-bottom, 0px); /* Safe area for iOS devices */
+  }
   .container { max-width: 960px; margin: 24px auto; padding: 16px; }
-  .card { background: #fff; border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.08); padding: 20px; }
-  h1 { margin: 0 0 12px; font-size: 24px; }
-  .row { display: grid; grid-template-columns: 200px 1fr; gap: 12px; align-items: center; margin: 8px 0; }
-  .row input[type="text"], .row input[type="number"] { padding: 8px 10px; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; }
-  .actions { display: flex; gap: 12px; margin-top: 12px; }
-  button { padding: 10px 16px; border: 0; border-radius: 12px; background:#1a73e8; color:white; font-size: 16px; cursor:pointer; }
+  .card { background:#fff; border-radius:16px; box-shadow:0 6px 24px rgba(0,0,0,.08); padding:20px; }
+  h1 { margin:0 0 12px; font-size: clamp(20px, 4vw, 28px); }
+
+  /* Settings form: 2 columns on desktop, 1 column on mobile */
+  .row {
+    display:grid; grid-template-columns: 220px 1fr; gap:12px; align-items:center; margin:10px 0;
+  }
+  .row input[type="text"], .row input[type="number"] {
+    padding:12px 12px; border:1px solid #ddd; border-radius:12px; font-size: clamp(16px, 4vw, 18px);
+    width:100%;
+  }
+  .actions { display:flex; gap:12px; margin-top:12px; }
+  button {
+    padding:14px 18px; border:0; border-radius:12px; background:#1a73e8; color:#fff;
+    font-size: clamp(16px, 4.2vw, 18px); cursor:pointer; min-height: 44px;
+  }
   button.secondary { background:#e0e3eb; color:#222; }
   button:disabled { opacity:.6; cursor:not-allowed; }
-  /* Quiz */
-  .quiz-wrap { position: relative; min-height: 50vh; display: grid; grid-template-rows: auto 1fr auto; }
-  .timer { position:absolute; top: 8px; right: 12px; font-size: clamp(12px, 2.2vw, 28px); color:#555; }
-  .question { display:flex; align-items:center; justify-content:center; text-align:center; padding: 32px 12px; }
-  .question span { font-weight: 700; line-height: 1.1; }
-  .answer-bar { display:flex; gap: 12px; justify-content:center; align-items:center; padding: 16px; }
-  .answer-bar input { font-size: clamp(14px, 2.2vw, 60px); padding: 10px 12px; border:1px solid #ddd; border-radius: 12px; width: min(40ch, 60%); text-align:center; }
-  .answer-bar button { font-size: clamp(14px, 2.2vw, 28px); }
+
+  /* Quiz layout container */
+  .quiz-wrap { position:relative; min-height: 70vh; display:grid; grid-template-rows:auto 1fr auto; }
+  .timer { position:absolute; top:10px; right:12px; font-size: clamp(14px, 4vw, 24px); color:#555; }
+  .question { display:flex; align-items:center; justify-content:center; text-align:center; padding: 28px 12px; }
+  .question span {
+    font-weight: 800; line-height:1.1;
+    /* Responsive font: min=28px, fluid=12vw, max=var(--qfont) */
+    font-size: clamp(28px, 12vw, var(--qfont));
+  }
+
+  /* Answer bar fixed to bottom on mobile */
+  .answer-bar {
+    position: sticky; bottom: 0;
+    display:flex; gap:12px; justify-content:center; align-items:center;
+    padding: 12px;
+    background: rgba(255,255,255,0.85);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    border-top-left-radius: 12px; border-top-right-radius: 12px;
+  }
+  .answer-bar input {
+    font-size: clamp(18px, 6vw, var(--cfont));
+    padding: 12px 14px; border:1px solid #ddd; border-radius:12px;
+    width: min(40ch, 75%); text-align:center; min-height: 48px;
+  }
+  .answer-bar button {
+    font-size: clamp(16px, 4.5vw, var(--cfont));
+    min-width: 120px; min-height: 48px;
+  }
+
   .hidden { display:none !important; }
   .notice { margin-top:8px; color:#666; font-size: 13px; }
+
+  /* Mobile-specific adjustments */
+  @media (max-width: 680px) {
+    .row { grid-template-columns: 1fr; }
+    .row label { font-size: 14px; color:#444; }
+    .actions { flex-direction: column; }
+    .actions button { width: 100%; }
+    .container { margin: 12px auto; padding: 8px; }
+    .card { border-radius: 14px; padding: 16px; }
+  }
 </style>
 </head>
 <body>
 <div class="container">
-  <!-- Settings -->
+  <!-- Settings screen -->
   <div id="settings" class="card">
     <h1>Math Quiz Settings</h1>
     <div class="row">
       <label>Time Limit (sec):</label>
-      <input id="tl" type="number" min="1" value="5" />
+      <input id="tl" type="number" min="1" value="5" inputmode="numeric" />
     </div>
     <div class="row">
       <label>Total Questions:</label>
-      <input id="tq" type="number" min="1" value="10" />
+      <input id="tq" type="number" min="1" value="10" inputmode="numeric" />
     </div>
     <div class="row">
-      <label>Series (comma or &quot;all&quot;):</label>
+      <label>Series (comma or "all"):</label>
       <input id="series" type="text" value="all" placeholder="e.g. 2,3,5 or all" />
     </div>
     <div class="row">
       <label>Font Size:</label>
-      <input id="fs" type="number" min="12" value="120" />
+      <input id="fs" type="number" min="12" value="120" inputmode="numeric" />
     </div>
     <div class="row">
       <label>Review Mistakes:</label>
@@ -62,13 +116,14 @@
     </div>
   </div>
 
-  <!-- Quiz -->
+  <!-- Quiz screen -->
   <div id="quiz" class="card hidden">
     <div class="quiz-wrap">
       <div id="timer" class="timer">Time left: 0s</div>
       <div class="question"><span id="qText"></span></div>
       <div class="answer-bar">
-        <input id="ans" type="text" inputmode="numeric" autocomplete="off" />
+        <!-- Mobile numeric keyboard hint -->
+        <input id="ans" type="tel" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" />
         <button id="submitBtn">Submit</button>
       </div>
     </div>
@@ -77,22 +132,22 @@
 
 <script>
 (() => {
-  // State
+  // Application state
   const state = {
-    firstRunFinished: false,
-    wrongQuestions: [],   // array of [a,b]
-    results: [],          // rows: [a,b,correct,yourAns,status]
-    questions: [],
-    idx: 0,
-    timeLimit: 5,
-    timerId: null,
-    timeLeft: 0,
-    allCorrect: true,
-    isReview: false,
-    fontSize: 120
+    firstRunFinished: false, // Whether the first quiz session is completed
+    wrongQuestions: [],      // Stores wrong questions from last run
+    results: [],             // Stores all results for CSV export
+    questions: [],           // Current question list
+    idx: 0,                  // Current question index
+    timeLimit: 5,            // Seconds per question
+    timerId: null,           // Timer reference
+    timeLeft: 0,             // Remaining time in current question
+    allCorrect: true,        // Whether all answers were correct
+    isReview: false,         // Review mode flag
+    fontSize: 120            // Max question font size
   };
 
-  // Elements
+  // Element references
   const elSettings = document.getElementById('settings');
   const elQuiz = document.getElementById('quiz');
   const elTL = document.getElementById('tl');
@@ -109,18 +164,14 @@
   const elAns = document.getElementById('ans');
   const elSubmit = document.getElementById('submitBtn');
 
-  // Helpers
-  function clampQuestionFont(px) {
-    return Math.min(120, Math.max(12, px));
-  }
-  function clampControlFont(px) {
-    return Math.min(120, Math.max(12, Math.floor(px/2)));
-  }
-  function setView(showQuiz) {
+  // Helper: Set view between settings and quiz
+  const setView = showQuiz => {
     elSettings.classList.toggle('hidden', showQuiz);
     elQuiz.classList.toggle('hidden', !showQuiz);
-  }
-  function refreshReviewCheckbox() {
+  };
+
+  // Helper: Enable or disable review checkbox
+  const refreshReview = () => {
     if (!state.firstRunFinished) {
       elReview.disabled = true;
       elReviewTip.textContent = 'Review is available after the first quiz.';
@@ -131,8 +182,10 @@
       elReview.disabled = false;
       elReviewTip.textContent = 'Run a session using only the latest mistakes.';
     }
-  }
-  function makeQuestionsNormal(total, seriesText) {
+  };
+
+  // Helper: Create question list based on series selection
+  const makeQuestions = (total, seriesText) => {
     const seriesNums = [];
     if (String(seriesText).trim().toLowerCase() === 'all') {
       for (let i=1;i<=9;i++) seriesNums.push(i);
@@ -150,7 +203,9 @@
       qs.push([a,b]);
     }
     return qs;
-  }
+  };
+
+  // Timer control
   function startTimer() {
     clearInterval(state.timerId);
     state.timeLeft = state.timeLimit;
@@ -164,14 +219,18 @@
       }
     }, 1000);
   }
+
+  // Show current question
   function showQuestion() {
     if (state.idx >= state.questions.length) return endQuiz();
     const [a,b] = state.questions[state.idx];
     elQText.textContent = `${a} × ${b}`;
     startTimer();
     elAns.value = '';
-    elAns.focus();
+    setTimeout(() => elAns.focus({ preventScroll: true }), 50);
   }
+
+  // Handle answer submit
   function onSubmit() {
     if (state.idx >= state.questions.length) return;
     const [a,b] = state.questions[state.idx];
@@ -192,6 +251,8 @@
     state.idx++;
     showQuestion();
   }
+
+  // Handle timeout
   function onTimeout() {
     if (state.idx >= state.questions.length) return;
     const [a,b] = state.questions[state.idx];
@@ -202,20 +263,21 @@
     state.idx++;
     showQuestion();
   }
+
+  // End quiz and show results
   function endQuiz() {
     clearInterval(state.timerId);
-    // First run finished -> allow review next time
     if (!state.firstRunFinished) state.firstRunFinished = true;
-    // After review session, clear consumed list
     if (state.isReview) state.wrongQuestions = [];
     if (state.allCorrect) {
       alert('Perfect! All answers are correct.');
     }
     setView(false);
-    refreshReviewCheckbox();
+    refreshReview();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // Export CSV
+  // Export results to CSV
   function exportCsv() {
     const rows = [['A','B','Correct','YourAns','Status'], ...state.results];
     const csv = rows.map(r => r.map(x => String(x).replace(/"/g,'""')).map(x => /[",\n]/.test(x)?`"${x}"`:x).join(',')).join('\n');
@@ -227,38 +289,37 @@
     URL.revokeObjectURL(a.href);
   }
 
-  // Start
+  // Start quiz button handler
   elStart.addEventListener('click', () => {
     state.timeLimit = Math.max(1, parseInt(elTL.value,10) || 5);
     const total = Math.max(1, parseInt(elTQ.value,10) || 10);
-    state.fontSize = clampQuestionFont(parseInt(elFS.value,10) || 24);
+    state.fontSize = Math.min(120, Math.max(12, parseInt(elFS.value,10) || 24));
     state.isReview = !elReview.disabled && elReview.checked;
 
-    // Dynamic font sizes
-    const qFont = state.fontSize;
-    const cFont = clampControlFont(state.fontSize);
-    elQText.style.fontSize = `${qFont}px`;
-    elAns.style.fontSize = `${cFont}px`;
-    elSubmit.style.fontSize = `${cFont}px`;
+    // Apply dynamic font sizes
+    document.documentElement.style.setProperty('--qfont', state.fontSize + 'px');
+    document.documentElement.style.setProperty('--cfont', Math.min(120, Math.max(12, Math.floor(state.fontSize/2))) + 'px');
 
     state.results = [];
     state.allCorrect = true;
-    if (state.isReview && state.wrongQuestions.length) {
-      state.questions = [...state.wrongQuestions];
-    } else {
-      state.questions = makeQuestionsNormal(total, elSeries.value);
-    }
-    state.idx = 0;
+    state.questions = (state.isReview && state.wrongQuestions.length)
+      ? [...state.wrongQuestions]
+      : makeQuestions(total, elSeries.value);
 
+    state.idx = 0;
     setView(true);
     showQuestion();
   });
 
+  // Submit button handler
   elSubmit.addEventListener('click', onSubmit);
   elAns.addEventListener('keydown', (e) => { if (e.key === 'Enter') onSubmit(); });
+
+  // Export button handler
   elExport.addEventListener('click', exportCsv);
 
-  refreshReviewCheckbox();
+  // Initialize review checkbox state
+  refreshReview();
 })();
 </script>
 </body>
