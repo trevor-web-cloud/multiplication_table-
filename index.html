@@ -85,8 +85,8 @@
         <div class="row"><label>Font Size:</label><input id="fs" type="number" min="12" value="120" inputmode="numeric" /></div>
         <div class="row"><label>Review Mistakes:</label><div><input id="review" type="checkbox" /><div id="reviewTip" class="notice"></div></div></div>
         <div class="actions">
-          <button id="startBtn">Start Quiz</button>
-          <button id="exportBtn" class="secondary">Export Results (CSV)</button>
+          <button id="startBtn" type="button">Start Quiz</button>
+          <button id="exportBtn" class="secondary" type="button">Export Results (CSV)</button>
         </div>
       </div>
 
@@ -95,8 +95,9 @@
           <div id="timer" class="timer">Time left: 0s</div>
           <div class="question"><span id="qText"></span></div>
           <div class="answer-bar">
-            <input id="ans" type="tel" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" autocapitalize="off" autocorrect="off" />
-            <button id="submitBtn">Submit</button>
+            <input id="ans" type="tel" inputmode="numeric" pattern="[0-9]*"
+                   autocomplete="one-time-code" autocapitalize="off" autocorrect="off" />
+            <button id="submitBtn" type="button">Submit</button>
           </div>
         </div>
       </div>
@@ -133,14 +134,33 @@ const elTimer   = document.getElementById('timer');
 const elAns     = document.getElementById('ans');
 const elSubmit  = document.getElementById('submitBtn');
 
+// ----- Utils -----
 const clampQ = px => Math.min(120, Math.max(12, px));
-
 const setView = showQuiz => {
   elSettings.classList.toggle('hidden', showQuiz);
   elQuiz.classList.toggle('hidden', !showQuiz);
   scroller.scrollTo({top: 0, behavior: 'instant'});
 };
 
+// Keep viewport steady on iOS (no-jump)
+function applyVh(){
+  const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+  document.documentElement.style.setProperty('--app-vh', vh + 'px');
+}
+function onVisualViewportChange(){
+  if (window.visualViewport) {
+    const off = window.visualViewport.offsetTop || 0;
+    document.documentElement.style.setProperty('--vv-offset', off + 'px');
+  }
+}
+applyVh(); onVisualViewportChange();
+window.addEventListener('resize', applyVh);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => { applyVh(); onVisualViewportChange(); }, {passive:true});
+  window.visualViewport.addEventListener('scroll',  () => { onVisualViewportChange(); }, {passive:true});
+}
+
+// ----- Settings load/save -----
 function loadSettings(){
   try{
     const raw = localStorage.getItem(LS_SETTINGS_KEY);
@@ -155,7 +175,6 @@ function loadSettings(){
     document.documentElement.style.setProperty('--quiz-font-size', fs + 'px');
   }catch(e){ console.warn('loadSettings error', e); }
 }
-
 function saveSettings(){
   const s = {
     timeLimit: Math.max(1, parseInt(elTL.value,10) || 5),
@@ -166,7 +185,19 @@ function saveSettings(){
   };
   localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(s));
 }
+['input','change'].forEach(evt=>{
+  elTL.addEventListener(evt, saveSettings);
+  elTQ.addEventListener(evt, saveSettings);
+  elSeries.addEventListener(evt, saveSettings);
+  elFS.addEventListener(evt, e=>{
+    saveSettings();
+    const fs = clampQ(parseInt(elFS.value,10) || 120);
+    document.documentElement.style.setProperty('--quiz-font-size', fs + 'px');
+  });
+  elReview.addEventListener(evt, saveSettings);
+});
 
+// ----- Mistakes persistence -----
 function loadMistakes(){
   try{
     const raw = localStorage.getItem(LS_MISTAKES_KEY);
@@ -194,6 +225,7 @@ function refreshReview(){
   }
 }
 
+// ----- Quiz logic -----
 function makeQuestions(total, seriesText){
   const seriesNums = [];
   if(String(seriesText).trim().toLowerCase()==='all'){
@@ -214,24 +246,6 @@ function makeQuestions(total, seriesText){
   return qs;
 }
 
-// No-jump sizing helpers
-function applyVh(){
-  const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
-  document.documentElement.style.setProperty('--app-vh', vh + 'px');
-}
-function onVisualViewportChange(){
-  if (window.visualViewport) {
-    const off = window.visualViewport.offsetTop || 0;
-    document.documentElement.style.setProperty('--vv-offset', off + 'px');
-  }
-}
-applyVh(); onVisualViewportChange();
-window.addEventListener('resize', applyVh);
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', () => { applyVh(); onVisualViewportChange(); }, {passive:true});
-  window.visualViewport.addEventListener('scroll',  () => { onVisualViewportChange(); }, {passive:true});
-}
-
 function startTimer(){
   clearInterval(state.timerId);
   state.timeLeft = state.timeLimit;
@@ -246,14 +260,26 @@ function startTimer(){
   }, 1000);
 }
 
+function ensureMobileKeyboard(el){
+  const tryFocus = () => {
+    el.focus({ preventScroll: true });
+    el.click(); // needed on some iOS
+    try { el.setSelectionRange(el.value.length, el.value.length); } catch(e) {}
+  };
+  tryFocus();
+  if (document.activeElement !== el) {
+    requestAnimationFrame(() => setTimeout(tryFocus, 0));
+  }
+}
+
 function showQuestion(){
   if(state.idx >= state.questions.length) return endQuiz();
   const [a,b] = state.questions[state.idx];
   elQText.textContent = `${a} × ${b}`;
   startTimer();
   elAns.value = '';
-  // Keep focus every question
-  requestAnimationFrame(()=>setTimeout(()=>ensureMobileKeyboard(elAns),0));
+  // Auto-focus & show keyboard on every question
+  requestAnimationFrame(() => setTimeout(() => ensureMobileKeyboard(elAns), 0));
 }
 
 function onSubmit(){
@@ -302,6 +328,7 @@ function endQuiz(){
   scroller.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// ----- CSV export -----
 function exportCsv(){
   const rows=[['A','B','Correct','YourAns','Status'], ...state.results];
   const csv = rows.map(r => r.map(x => String(x).replace(/"/g,'""')).map(x => /[",\n]/.test(x)?`"${x}"`:x).join(',')).join('\n');
@@ -313,43 +340,17 @@ function exportCsv(){
   URL.revokeObjectURL(a.href);
 }
 
-// ---- Mobile keyboard helpers (iOS + Android) ----
-function ensureMobileKeyboard(el){
-  const tryFocus = () => {
-    el.focus({ preventScroll: true });
-    el.click();
-    try { el.setSelectionRange(el.value.length, el.value.length); } catch(e) {}
-  };
-  tryFocus();
-  if (document.activeElement !== el) {
-    requestAnimationFrame(() => setTimeout(tryFocus, 0));
+// ----- Avoid button stealing focus -----
+['pointerdown','mousedown'].forEach(ev=>{
+  elSubmit.addEventListener(ev, e => e.preventDefault());
+});
+
+// ----- Keyboard submit without losing focus -----
+elAns.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    onSubmit();
   }
-}
-
-// one-time safety focus if first attempt fails
-function armOneTimeTouchFocus(){
-  const handler = () => {
-    ensureMobileKeyboard(elAns);
-    document.removeEventListener('pointerup', handler, { passive:true });
-    document.removeEventListener('touchend', handler, { passive:true });
-    document.removeEventListener('click', handler, { passive:true });
-  };
-  document.addEventListener('pointerup', handler, { passive:true, once:true });
-  document.addEventListener('touchend', handler, { passive:true, once:true });
-  document.addEventListener('click', handler, { passive:true, once:true });
-}
-
-// ----- Settings persistence events -----
-['input','change'].forEach(evt=>{
-  elTL.addEventListener(evt, saveSettings);
-  elTQ.addEventListener(evt, saveSettings);
-  elSeries.addEventListener(evt, saveSettings);
-  elFS.addEventListener(evt, e=>{
-    saveSettings();
-    const fs = clampQ(parseInt(elFS.value,10) || 120);
-    document.documentElement.style.setProperty('--quiz-font-size', fs + 'px');
-  });
-  elReview.addEventListener(evt, saveSettings);
 });
 
 // ----- Start button -----
@@ -376,18 +377,28 @@ elStart.addEventListener('click', () => {
   setView(true);
   showQuestion();
 
-  // ensure keyboard pops on first start
+  // First-time safety focus (within user gesture)
   requestAnimationFrame(()=>setTimeout(()=>ensureMobileKeyboard(elAns),0));
-  armOneTimeTouchFocus();
+  const safety = () => {
+    ensureMobileKeyboard(elAns);
+    document.removeEventListener('pointerup', safety, {passive:true});
+    document.removeEventListener('touchend', safety, {passive:true});
+    document.removeEventListener('click', safety, {passive:true});
+  };
+  document.addEventListener('pointerup', safety, {passive:true, once:true});
+  document.addEventListener('touchend', safety, {passive:true, once:true});
+  document.addEventListener('click', safety, {passive:true, once:true});
 });
 
-elSubmit.addEventListener('click', onSubmit);
-elAns.addEventListener('keydown', e => { if(e.key === 'Enter') onSubmit(); });
+// ----- Export -----
+elExport.addEventListener('click', exportCsv);
 
+// ----- SW -----
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
 }
 
+// Init
 loadSettings();
 refreshReview();
 })();
