@@ -2,21 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<!-- Mobile viewport optimization -->
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Math Quiz</title>
 <style>
   :root {
-    /* Dynamic font sizes (will be updated by JavaScript) */
-    --qfont: 120px;  /* Question font size */
-    --cfont: 60px;   /* Controls font size */
+    /* Dynamic font sizes (updated by JS) */
+    --qfont: 120px;  /* Question font size (max) */
+    --cfont: 60px;   /* Controls font size (max) */
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     margin: 0; background:#f6f7fb; color:#222;
-    padding-bottom: env(safe-area-inset-bottom, 0px); /* Safe area for iOS devices */
+    padding-bottom: env(safe-area-inset-bottom, 0px); /* iOS safe area */
   }
   .container { max-width: 960px; margin: 24px auto; padding: 16px; }
   .card { background:#fff; border-radius:16px; box-shadow:0 6px 24px rgba(0,0,0,.08); padding:20px; }
@@ -33,22 +32,22 @@
   .actions { display:flex; gap:12px; margin-top:12px; }
   button {
     padding:14px 18px; border:0; border-radius:12px; background:#1a73e8; color:#fff;
-    font-size: clamp(16px, 4.2vw, 18px); cursor:pointer; min-height: 44px;
+    font-size: clamp(16px, 4.2vw, 18px); cursor:pointer; min-height:44px;
   }
   button.secondary { background:#e0e3eb; color:#222; }
   button:disabled { opacity:.6; cursor:not-allowed; }
 
-  /* Quiz layout container */
-  .quiz-wrap { position:relative; min-height: 70vh; display:grid; grid-template-rows:auto 1fr auto; }
+  /* Quiz layout */
+  .quiz-wrap { position:relative; min-height:70vh; display:grid; grid-template-rows:auto 1fr auto; }
   .timer { position:absolute; top:10px; right:12px; font-size: clamp(14px, 4vw, 24px); color:#555; }
-  .question { display:flex; align-items:center; justify-content:center; text-align:center; padding: 28px 12px; }
+  .question { display:flex; align-items:center; justify-content:center; text-align:center; padding:28px 12px; }
   .question span {
-    font-weight: 800; line-height:1.1;
-    /* Responsive font: min=28px, fluid=12vw, max=var(--qfont) */
+    font-weight:800; line-height:1.1;
+    /* Responsive: min 28px, fluid 12vw, max var(--qfont) */
     font-size: clamp(28px, 12vw, var(--qfont));
   }
 
-  /* Answer bar fixed to bottom on mobile */
+  /* Sticky bottom answer bar: mobile-friendly, not covered by keyboard */
   .answer-bar {
     position: sticky; bottom: 0;
     display:flex; gap:12px; justify-content:center; align-items:center;
@@ -61,18 +60,38 @@
   .answer-bar input {
     font-size: clamp(18px, 6vw, var(--cfont));
     padding: 12px 14px; border:1px solid #ddd; border-radius:12px;
-    width: min(40ch, 75%); text-align:center; min-height: 48px;
+    width: min(40ch, 75%); text-align:center; min-height:48px;
   }
   .answer-bar button {
     font-size: clamp(16px, 4.5vw, var(--cfont));
-    min-width: 120px; min-height: 48px;
+    min-width:120px; min-height:48px;
   }
 
   .hidden { display:none !important; }
-  .notice { margin-top:8px; color:#666; font-size: 13px; }
+  .notice { margin-top:8px; color:#666; font-size:13px; }
 
-  /* Mobile-specific adjustments */
+  /* ===== Compact top HUD (question + timer) shown while keyboard is open ===== */
+  .hud {
+    position: fixed;
+    top: env(safe-area-inset-top, 0px);
+    left: 0; right: 0;
+    z-index: 999;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.95);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid #eee;
+  }
+  .hud.hidden { display: none; }
+  .hud-q { font-weight:700; font-size: clamp(16px, 5vw, 22px); }
+  .hud-timer { color:#555; font-size: clamp(14px, 4.2vw, 18px); }
+
+  /* When keyboard is open and HUD visible, push content slightly down */
+  .keyboard-open .container { margin-top: 56px; }
   @media (max-width: 680px) {
+    .keyboard-open .container { margin-top: 50px; }
     .row { grid-template-columns: 1fr; }
     .row label { font-size: 14px; color:#444; }
     .actions { flex-direction: column; }
@@ -84,7 +103,13 @@
 </head>
 <body>
 <div class="container">
-  <!-- Settings screen -->
+  <!-- ===== Compact HUD (hidden by default, shown when keyboard is open) ===== -->
+  <div id="hud" class="hud hidden">
+    <div class="hud-q" id="hudQ">– × –</div>
+    <div class="hud-timer" id="hudTimer">Time left: 0s</div>
+  </div>
+
+  <!-- ===== Settings screen ===== -->
   <div id="settings" class="card">
     <h1>Math Quiz Settings</h1>
     <div class="row">
@@ -116,7 +141,7 @@
     </div>
   </div>
 
-  <!-- Quiz screen -->
+  <!-- ===== Quiz screen ===== -->
   <div id="quiz" class="card hidden">
     <div class="quiz-wrap">
       <div id="timer" class="timer">Time left: 0s</div>
@@ -132,22 +157,22 @@
 
 <script>
 (() => {
-  // Application state
+  /* ===================== State ===================== */
   const state = {
-    firstRunFinished: false, // Whether the first quiz session is completed
-    wrongQuestions: [],      // Stores wrong questions from last run
-    results: [],             // Stores all results for CSV export
-    questions: [],           // Current question list
+    firstRunFinished: false, // First session must finish before review is allowed
+    wrongQuestions: [],      // Mistakes from last normal session
+    results: [],             // [a,b,correct,yourAns,status] for export
+    questions: [],           // Current questions
     idx: 0,                  // Current question index
     timeLimit: 5,            // Seconds per question
-    timerId: null,           // Timer reference
-    timeLeft: 0,             // Remaining time in current question
-    allCorrect: true,        // Whether all answers were correct
+    timerId: null,           // setInterval handle
+    timeLeft: 0,             // Remaining seconds
+    allCorrect: true,        // Whether all answers were correct this run
     isReview: false,         // Review mode flag
-    fontSize: 120            // Max question font size
+    fontSize: 120            // Question font size cap
   };
 
-  // Element references
+  /* ===================== Elements ===================== */
   const elSettings = document.getElementById('settings');
   const elQuiz = document.getElementById('quiz');
   const elTL = document.getElementById('tl');
@@ -164,13 +189,19 @@
   const elAns = document.getElementById('ans');
   const elSubmit = document.getElementById('submitBtn');
 
-  // Helper: Set view between settings and quiz
+  // HUD elements
+  const elHud = document.getElementById('hud');
+  const elHudQ = document.getElementById('hudQ');
+  const elHudTimer = document.getElementById('hudTimer');
+
+  /* ===================== Helpers ===================== */
+  // Toggle between settings and quiz views
   const setView = showQuiz => {
     elSettings.classList.toggle('hidden', showQuiz);
     elQuiz.classList.toggle('hidden', !showQuiz);
   };
 
-  // Helper: Enable or disable review checkbox
+  // Enable/disable review checkbox based on state
   const refreshReview = () => {
     if (!state.firstRunFinished) {
       elReview.disabled = true;
@@ -184,7 +215,7 @@
     }
   };
 
-  // Helper: Create question list based on series selection
+  // Build random questions for normal mode
   const makeQuestions = (total, seriesText) => {
     const seriesNums = [];
     if (String(seriesText).trim().toLowerCase() === 'all') {
@@ -205,14 +236,24 @@
     return qs;
   };
 
-  // Timer control
+  // Show/hide the compact HUD and add a body class to offset content
+  function setKeyboardOpen(open) {
+    document.body.classList.toggle('keyboard-open', open);
+    elHud.classList.toggle('hidden', !open);
+  }
+
+  /* ===================== Timer & Quiz Flow ===================== */
   function startTimer() {
     clearInterval(state.timerId);
     state.timeLeft = state.timeLimit;
-    elTimer.textContent = `Time left: ${state.timeLeft}s`;
+    const t0 = `Time left: ${state.timeLeft}s`;
+    elTimer.textContent = t0;
+    elHudTimer.textContent = t0; // mirror timer into HUD
     state.timerId = setInterval(() => {
       state.timeLeft--;
-      elTimer.textContent = `Time left: ${state.timeLeft}s`;
+      const t = `Time left: ${state.timeLeft}s`;
+      elTimer.textContent = t;
+      elHudTimer.textContent = t; // mirror
       if (state.timeLeft <= 0) {
         clearInterval(state.timerId);
         onTimeout();
@@ -220,17 +261,18 @@
     }, 1000);
   }
 
-  // Show current question
   function showQuestion() {
     if (state.idx >= state.questions.length) return endQuiz();
     const [a,b] = state.questions[state.idx];
-    elQText.textContent = `${a} × ${b}`;
+    const q = `${a} × ${b}`;
+    elQText.textContent = q;
+    elHudQ.textContent = q; // mirror question into HUD
     startTimer();
     elAns.value = '';
+    // Small delay improves focusing on mobile without unwanted scroll jumps
     setTimeout(() => elAns.focus({ preventScroll: true }), 50);
   }
 
-  // Handle answer submit
   function onSubmit() {
     if (state.idx >= state.questions.length) return;
     const [a,b] = state.questions[state.idx];
@@ -252,7 +294,6 @@
     showQuestion();
   }
 
-  // Handle timeout
   function onTimeout() {
     if (state.idx >= state.questions.length) return;
     const [a,b] = state.questions[state.idx];
@@ -264,23 +305,34 @@
     showQuestion();
   }
 
-  // End quiz and show results
   function endQuiz() {
     clearInterval(state.timerId);
+    // Hide HUD when leaving the quiz
+    setKeyboardOpen(false);
+
+    // First run completed -> review may be enabled next time
     if (!state.firstRunFinished) state.firstRunFinished = true;
+    // After a review session, clear consumed mistakes
     if (state.isReview) state.wrongQuestions = [];
+    // If perfect, congratulate
     if (state.allCorrect) {
       alert('Perfect! All answers are correct.');
     }
+    // Return to settings
     setView(false);
     refreshReview();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // Export results to CSV
+  /* ===================== Export ===================== */
   function exportCsv() {
     const rows = [['A','B','Correct','YourAns','Status'], ...state.results];
-    const csv = rows.map(r => r.map(x => String(x).replace(/"/g,'""')).map(x => /[",\n]/.test(x)?`"${x}"`:x).join(',')).join('\n');
+    const csv = rows
+      .map(r => r
+        .map(x => String(x).replace(/"/g,'""'))
+        .map(x => /[",\n]/.test(x) ? `"${x}"` : x)
+        .join(',')
+      ).join('\n');
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -289,17 +341,19 @@
     URL.revokeObjectURL(a.href);
   }
 
-  // Start quiz button handler
+  /* ===================== Events ===================== */
+  // Start quiz
   elStart.addEventListener('click', () => {
     state.timeLimit = Math.max(1, parseInt(elTL.value,10) || 5);
     const total = Math.max(1, parseInt(elTQ.value,10) || 10);
     state.fontSize = Math.min(120, Math.max(12, parseInt(elFS.value,10) || 24));
     state.isReview = !elReview.disabled && elReview.checked;
 
-    // Apply dynamic font sizes
+    // Apply dynamic font sizes via CSS variables
     document.documentElement.style.setProperty('--qfont', state.fontSize + 'px');
     document.documentElement.style.setProperty('--cfont', Math.min(120, Math.max(12, Math.floor(state.fontSize/2))) + 'px');
 
+    // Build question set
     state.results = [];
     state.allCorrect = true;
     state.questions = (state.isReview && state.wrongQuestions.length)
@@ -311,14 +365,30 @@
     showQuestion();
   });
 
-  // Submit button handler
+  // Submit handlers
   elSubmit.addEventListener('click', onSubmit);
   elAns.addEventListener('keydown', (e) => { if (e.key === 'Enter') onSubmit(); });
 
-  // Export button handler
+  // Export
   elExport.addEventListener('click', exportCsv);
 
-  // Initialize review checkbox state
+  // HUD show/hide on input focus/blur (works well across devices)
+  elAns.addEventListener('focus', () => setKeyboardOpen(true));
+  elAns.addEventListener('blur',  () => setKeyboardOpen(false));
+
+  // Extra: VisualViewport fallback (if supported) to detect keyboard open/close
+  if (window.visualViewport) {
+    let baseline = window.visualViewport.height;
+    window.visualViewport.addEventListener('resize', () => {
+      // If the viewport height shrinks more than ~120px, assume keyboard is open
+      const open = window.visualViewport.height < baseline - 120;
+      setKeyboardOpen(open);
+      // Update baseline softly (handles rotations/URL bar hide/show)
+      if (!open) baseline = window.visualViewport.height;
+    });
+  }
+
+  // Initialize review checkbox on first load
   refreshReview();
 })();
 </script>
