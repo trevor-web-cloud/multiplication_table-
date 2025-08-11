@@ -1,5 +1,5 @@
 // Math Quiz PWA Service Worker (cache-first)
-const CACHE_VERSION = 'v1.4.2-mobileRatioQ50-A25-S16';
+const CACHE_VERSION = 'v1.4.3-desktopSubmit50-mobileQ50A25S16';
 const CACHE_NAME = `math-quiz-cache-${CACHE_VERSION}`;
 const ASSETS = [
   './',

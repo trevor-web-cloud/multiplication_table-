@@ -14,12 +14,11 @@
 
   <style>
     :root {
-      --quiz-font-size: 120px;   /* desktop master size for question + answer input */
+      --quiz-font-size: 120px;   /* desktop master size */
       --vv-offset: 0px;
       --app-vh: 100vh;
     }
 
-    /* Layout base */
     *, *::before, *::after { box-sizing: border-box; }
     html, body {
       height: 100%;
@@ -59,18 +58,18 @@
       padding:14px; background:rgba(255,255,255,.9); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
       border-top-left-radius:12px; border-top-right-radius:12px; }
 
-    /* Desktop: Input = question; Button = 30% of question */
+    /* Desktop: Input = 100% (question), Button = 50% of question */
     .answer-bar input { font-size: var(--quiz-font-size) !important; line-height:1.05; padding:0.2em 0.35em; min-height:1.2em; text-align:center;
       width:min(12ch,60%); max-width:100%; }
-    .answer-bar button { font-size: calc(var(--quiz-font-size) * 0.3) !important; line-height:1.05; padding:0.3em 0.8em; min-height:1.4em; }
+    .answer-bar button { font-size: calc(var(--quiz-font-size) * 0.5) !important; line-height:1.05; padding:0.3em 0.8em; min-height:1.4em; }
 
-    /* Mobile (<=768px): ratios Q=50%, A=25%, S=16% with clamp floors */
+    /* Mobile (<=768px): Question = 50%, Answer = 25%, Submit = 16% (with clamps) */
     @media (max-width: 768px) {
       .question span {
-        font-size: clamp(28px, 10vw, calc(var(--quiz-font-size) * 0.5)) !important;
+        font-size: clamp(32px, 10vw, calc(var(--quiz-font-size) * 0.5)) !important;
       }
       .answer-bar input {
-        font-size: clamp(20px, 5vw, calc(var(--quiz-font-size) * 0.25)) !important;
+        font-size: clamp(20px, 6vw, calc(var(--quiz-font-size) * 0.25)) !important;
       }
       .answer-bar button {
         font-size: clamp(14px, 3.5vw, calc(var(--quiz-font-size) * 0.16)) !important;
