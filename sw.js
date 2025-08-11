@@ -1,5 +1,5 @@
 // Math Quiz PWA Service Worker (cache-first)
-const CACHE_VERSION = 'v1.4.8-v13.1-softnumeric';
+const CACHE_VERSION = 'v1.4.9-enterDesktop-submitMobile';
 const CACHE_NAME = `math-quiz-cache-${CACHE_VERSION}`;
 const ASSETS = [
   './',
@@ -36,7 +36,7 @@ self.addEventListener('fetch', (event) => {
         return res;
       }).catch(() => {
         if (req.mode === 'navigate') return caches.match('./index.html');
-      });
+      })
     })
   );
 });
