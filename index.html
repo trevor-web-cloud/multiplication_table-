@@ -64,16 +64,16 @@
       width:min(12ch,60%); max-width:100%; }
     .answer-bar button { font-size: calc(var(--quiz-font-size) * 0.3) !important; line-height:1.05; padding:0.3em 0.8em; min-height:1.4em; }
 
-    /* Mobile (<=768px): Question capped, Input=50%, Button=25% with clamp */
+    /* Mobile (<=768px): ratios Q=50%, A=25%, S=16% with clamp floors */
     @media (max-width: 768px) {
       .question span {
-        font-size: clamp(40px, 12vw, var(--quiz-font-size)) !important;
+        font-size: clamp(28px, 10vw, calc(var(--quiz-font-size) * 0.5)) !important;
       }
       .answer-bar input {
-        font-size: clamp(20px, 4vw, calc(var(--quiz-font-size) * 0.5)) !important;
+        font-size: clamp(20px, 5vw, calc(var(--quiz-font-size) * 0.25)) !important;
       }
       .answer-bar button {
-        font-size: clamp(14px, 2vw, calc(var(--quiz-font-size) * 0.25)) !important;
+        font-size: clamp(14px, 3.5vw, calc(var(--quiz-font-size) * 0.16)) !important;
       }
     }
 
@@ -136,18 +136,18 @@
 
   <script>
   (()=>{
-    // ----- LS keys -----
+    // LS keys
     const LS_SETTINGS_KEY = 'mq_settings_v1';
     const LS_MISTAKES_KEY = 'mq_mistakes_v1';
 
-    // ----- State -----
+    // State
     const state = {
       firstRunFinished:false, wrongQuestions:[], results:[],
       questions:[], idx:0, timeLimit:5, timerId:null, timeLeft:0,
       allCorrect:true, isReview:false, fontSize:120
     };
 
-    // ----- Elements -----
+    // Elements
     const scroller  = document.getElementById('appScroll');
     const elSettings= document.getElementById('settings');
     const elQuiz    = document.getElementById('quiz');
