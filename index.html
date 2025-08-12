@@ -6,23 +6,20 @@
 <title>Math Quiz (No PWA)</title>
 <style>
 :root { --quiz-font-size: 120px; --vv-offset: 0px; --app-vh: 100vh; --kb-bottom: 0px; }
-
 *{box-sizing:border-box}
 html,body{height:100%;overflow:hidden;-webkit-text-size-adjust:100%;background:#f6f7fb;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#222}
-
 .app{position:fixed;inset:0;height:calc(var(--app-vh));padding-top:var(--vv-offset);display:flex;justify-content:center}
 .container{height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;max-width:960px;margin:0 auto;padding:16px}
 .card{background:#fff;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.08);padding:20px;transition:padding .15s ease}
 h1{margin:0 0 12px;font-size:clamp(22px,3.2vw,36px)}
 input,button{font-size:16px}
 
+/* Settings buttons */
 .actions{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap}
 button{border:0;border-radius:12px;background:#1a73e8;color:#fff;cursor:pointer;min-height:44px}
 button.secondary{background:#e0e3eb;color:#222}
 button:disabled{opacity:.6;cursor:not-allowed}
-/* Desktop settings buttons big */
 .actions button{font-size:40px;padding:.8em 1.5em}
-/* Mobile settings buttons */
 @media(max-width:768px){.actions button{font-size:28px;padding:1em 2em;width:100%}}
 
 .row{display:grid;grid-template-columns:260px 1fr;gap:12px;align-items:center;margin:10px 0}
@@ -32,9 +29,11 @@ button:disabled{opacity:.6;cursor:not-allowed}
 
 .card+.card{margin-top:16px}
 
-.quiz-wrap{position:relative;min-height:70%;display:grid;grid-template-rows:auto 1fr auto}
-.timer{position:absolute;top:10px;right:12px;font-size:clamp(14px,2vw,28px);color:#555;transition:font-size .15s ease}
-.question{display:flex;align-items:center;justify-content:center;text-align:center;padding:28px 12px;transition:padding .15s ease}
+/* Quiz layout: grid with topbar (timer), question center, answer fixed at bottom */
+.quiz-wrap{position:relative;display:grid;grid-template-rows:44px 1fr auto;min-height:70%}
+.topbar{display:flex;align-items:center;justify-content:flex-end;padding:8px 12px}
+.timer{font-size:clamp(14px,2vw,28px);color:#555}
+.question{display:flex;align-items:center;justify-content:center;text-align:center;padding:16px 12px}
 .question span{font-weight:800;line-height:1.1;font-size:var(--quiz-font-size);white-space:nowrap;flex-shrink:0}
 
 /* Keyboard-aware answer bar: fixed + bottom inset var */
@@ -43,7 +42,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .answer-bar input{line-height:1.05;padding:.2em .35em;min-height:1.2em;text-align:center;width:min(12ch,60%);max-width:100%}
 .answer-bar button{line-height:1.05;padding:.9em 2.0em;min-height:1.4em}
 
-/* Mobile portrait caps (fallbacks; runtime will override) */
+/* Mobile portrait caps (fallbacks; JS does dynamic sizes) */
 @media(max-width:768px) and (orientation:portrait){
   .question span{font-size:clamp(28px,8.5vw,80px)}
   .answer-bar input{font-size:clamp(16px,5vw,40px)}
@@ -56,28 +55,29 @@ button:disabled{opacity:.6;cursor:not-allowed}
   .answer-bar button{font-size:clamp(12px,2.6vw,14px)}
 }
 
-/* Compact mode when vv.height is very small */
+/* Compact when vv.height small */
 body.compact .card{padding:12px}
 body.compact .question{padding:8px 6px}
-body.compact .timer{font-size:14px;top:6px;right:8px}
+body.compact .timer{font-size:14px}
 body.compact .question span{font-size:36px!important}
 body.compact .answer-bar input{font-size:18px!important}
 body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
 
-/* Rotate guard overlay (mobile only via JS; default hidden) */
+/* Rotate guard only for mobile/tablet */
 .rotate-guard{position:fixed;inset:0;background:#000;color:#fff;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;z-index:9999}
 .rotate-guard h2{margin:0 0 12px;font-size:28px}
 .rotate-guard p{margin:0;font-size:16px;color:#ddd}
+.rotate-guard.show{display:flex}
 
 .hidden{display:none!important}
 .notice{margin-top:8px;color:#666;font-size:13px}
 </style>
 </head>
 <body>
-<div class="rotate-guard" id="rotateGuard" role="dialog" aria-live="polite" aria-label="Rotate device notice">
+<div class="rotate-guard" id="rotateGuard">
   <div>
     <h2>Please rotate your device</h2>
-    <p>This app only supports portrait mode on mobile.</p>
+    <p>This app only supports portrait mode.</p>
   </div>
 </div>
 
@@ -98,8 +98,14 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
 
     <div id="quiz" class="card hidden">
       <div class="quiz-wrap">
-        <div id="timer" class="timer">Time left: 0s</div>
-        <div class="question"><span id="qText"></span></div>
+        <div class="topbar">
+          <div id="timer" class="timer">Time left: 0s</div>
+        </div>
+
+        <div class="question">
+          <span id="qText"></span>
+        </div>
+
         <div class="answer-bar">
           <form id="answerForm" autocomplete="off">
             <input id="ans" type="text" inputmode="text" enterkeyhint="send"
@@ -114,9 +120,16 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
 
 <script>
 (function(){
-  const ua = navigator.userAgent || '';
-  function isMobileDevice(){ return /Mobi|Android|iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints>0 && Math.min(window.innerWidth, window.innerHeight) <= 1024); }
+  /* Device detection for orientation overlay (avoid desktop false positives) */
+  function isMobileDevice(){
+    const ua = navigator.userAgent || navigator.vendor || window.opera;
+    const uaTest = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+    const touch = navigator.maxTouchPoints && navigator.maxTouchPoints > 1;
+    const smallSide = Math.min(screen.width, screen.height) <= 1024;
+    return (uaTest || touch) && smallSide;
+  }
 
+  const isMobile = isMobileDevice();
   const elSettings = document.getElementById('settings');
   const elQuiz = document.getElementById('quiz');
   const elStart = document.getElementById('startBtn');
@@ -137,7 +150,13 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
   let quizData = [], currentIndex = 0, timerId = null, timeLeft = 0, mistakes = [], lastSubmitTs = 0;
   let allowReview = false, composing = false;
 
-  /* ===== viewport height stabilization (iOS) ===== */
+  function tryLockPortrait(){
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('portrait').catch(()=>{});
+    }
+  }
+
+  /* viewport height stabilization */
   function applyVh(){
     const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
     document.documentElement.style.setProperty('--app-vh', vh + 'px');
@@ -145,11 +164,11 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
   function onVisualViewportChange(){
     if (window.visualViewport) {
       const off = window.visualViewport.offsetTop || 0;
-      document.documentElement.style.setProperty('--vv-offset', '0px');
+      document.documentElement.style.setProperty('--vv-offset', 0 + 'px');
     }
   }
 
-  /* ===== dynamic font sizing by available height ===== */
+  /* dynamic font sizing */
   function adjustFontSizes() {
     const isLandscape = window.innerWidth > window.innerHeight;
     const h = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
@@ -166,7 +185,7 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     if (sEl) sEl.style.fontSize = s + 'px';
   }
 
-  /* ===== keyboard-aware layout ===== */
+  /* keyboard-aware layout */
   function updateKeyboardInset() {
     const vv = window.visualViewport;
     const ih = window.innerHeight;
@@ -181,15 +200,10 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     }
   }
 
-  /* ===== rotate guard (MOBILE ONLY) ===== */
+  /* orientation overlay only for mobile/tablet */
   function updateRotateGuard(){
     const landscape = window.innerWidth > window.innerHeight;
-    const mobile = isMobileDevice();
-    if (mobile && landscape) {
-      rotateGuard.style.display = 'flex';
-    } else {
-      rotateGuard.style.display = 'none';
-    }
+    rotateGuard.classList.toggle('show', isMobile && landscape);
   }
 
   function saveSettings() {
@@ -240,7 +254,7 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     adjustFontSizes();
     updateKeyboardInset();
     const qEl = document.querySelector('.question');
-    if (qEl) qEl.scrollIntoView({block:'start',behavior:'instant'});
+    if (qEl) qEl.scrollIntoView({block:'center',behavior:'instant'});
     timeLeft = Math.max(1, parseInt(elTL.value,10) || 5);
     elTimer.textContent = `Time left: ${timeLeft}s`;
     clearInterval(timerId);
@@ -265,6 +279,7 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
   }
 
   function startQuiz() {
+    tryLockPortrait();
     document.documentElement.style.setProperty('--quiz-font-size', (parseInt(elFS.value,10)||120) + 'px');
     if (elReview.checked && allowReview && mistakes.length) quizData = [...mistakes];
     else generateQuiz();
@@ -287,17 +302,15 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
   // IME-safe submit
   elAns.addEventListener('compositionstart', () => { composing = true; });
   elAns.addEventListener('compositionend',   () => { composing = false; });
-
   elForm.addEventListener('submit', (e) => { e.preventDefault(); if (!composing) submitAnswer(); });
-  elAns.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !composing) { e.preventDefault(); submitAnswer(); } });
-  elAns.addEventListener('beforeinput', (e) => { if (e.inputType === 'insertLineBreak' && !composing) { e.preventDefault(); submitAnswer(); } });
-
+  elAns.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !composing){ e.preventDefault(); submitAnswer(); } });
+  elAns.addEventListener('beforeinput', (e) => { if (e.inputType === 'insertLineBreak' && !composing){ e.preventDefault(); submitAnswer(); } });
   const trigger = (e)=>{ e && e.preventDefault && e.preventDefault(); if (!composing) submitAnswer(); };
-  elSubmit.addEventListener('click', trigger);
-  elSubmit.addEventListener('touchend', trigger, {passive:false});
+  document.getElementById('submitBtn').addEventListener('click', trigger);
+  document.getElementById('submitBtn').addEventListener('touchend', trigger, {passive:false});
 
-  elStart.addEventListener('click', () => { startQuiz(); ensureFocus(true); });
-  elExport.addEventListener('click', () => {
+  document.getElementById('startBtn').addEventListener('click', () => { startQuiz(); ensureFocus(true); });
+  document.getElementById('exportBtn').addEventListener('click', () => {
     if(!quizData.length){ alert('No data to export.'); return; }
     const rows = [['A','B','Answer'], ...quizData.map(q=>[q.a,q.b,q.ans])];
     const csv = rows.map(r => r.join(',')).join('\n');
