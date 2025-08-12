@@ -4,145 +4,243 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
 <title>Math Quiz</title>
+
+<!-- PWA -->
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#1a73e8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
 <style>
-:root { --quiz-font-size: 120px; }
-body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f0f0f0; }
-.container { max-width: 600px; margin: auto; padding: 20px; }
-.hidden { display: none; }
-.question { font-size: var(--quiz-font-size); text-align: center; margin: 20px 0; }
-.answer-bar { display: flex; justify-content: center; gap: 10px; }
-.answer-bar input { font-size: var(--quiz-font-size); text-align: center; width: 50%; }
-.answer-bar button { font-size: calc(var(--quiz-font-size) * 0.5); }
-.timer { text-align: right; margin-bottom: 10px; font-size: 1.5em; }
+:root { --quiz-font-size: 120px; --vv-offset: 0px; --app-vh: 100vh; }
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; overscroll-behavior: contain; -webkit-text-size-adjust: 100%; background: #f6f7fb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #222; }
+.app { position: fixed; inset: 0; height: 100svh; height: calc(var(--app-vh)); transform: translateY(calc(-1 * var(--vv-offset))); display: flex; justify-content: center; }
+.container { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; max-width: 960px; margin: 0 auto; padding: 16px; }
+.card { background:#fff; border-radius:16px; box-shadow:0 6px 24px rgba(0,0,0,.08); padding:20px; }
+h1 { margin:0 0 12px; font-size:clamp(22px,3.2vw,36px); }
+input, textarea, select, button { font-size: 16px; }
+.row { display:grid; grid-template-columns:260px 1fr; gap:12px; align-items:center; margin:10px 0; }
+.row label { font-size: clamp(14px, 1.4vw, 20px); }
+.row input { width:100%; max-width:100%; border:1px solid #ddd; border-radius:12px; padding:12px; }
+.actions { display:flex; gap:12px; margin-top:12px; flex-wrap: wrap; }
+button { padding:14px 18px; border:0; border-radius:12px; background:#1a73e8; color:#fff; cursor:pointer; min-height:44px; }
+button.secondary { background:#e0e3eb; color:#222; }
+button:disabled { opacity:.6; cursor:not-allowed; }
+.card + .card { margin-top: 16px; }
+.quiz-wrap { position:relative; min-height:70%; display:grid; grid-template-rows:auto 1fr auto; }
+.timer { position:absolute; top:10px; right:12px; font-size: clamp(14px, 2vw, 28px); color:#555; }
+.question { display:flex; align-items:center; justify-content:center; text-align:center; padding:28px 12px; }
+.question span { font-weight:800; line-height:1.1; font-size: var(--quiz-font-size) !important; white-space: nowrap; flex-shrink: 0; }
+.answer-bar { position: sticky; bottom: 0; display:flex; gap:16px; justify-content:center; align-items:center; padding:14px; background:rgba(255,255,255,.9); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-top-left-radius:12px; border-top-right-radius:12px; }
+.answer-bar input { font-size: var(--quiz-font-size) !important; line-height:1.05; padding:0.2em 0.35em; min-height:1.2em; text-align:center; width:min(12ch,60%); max-width:100%; }
+.answer-bar button { font-size: calc(var(--quiz-font-size) * 0.5) !important; line-height:1.05; padding:0.3em 0.8em; min-height:1.4em; }
+@media (max-width: 768px) {
+  .question span { font-size: clamp(32px, 10vw, calc(var(--quiz-font-size) * 0.5)) !important; }
+  .answer-bar input { font-size: clamp(20px, 6vw, calc(var(--quiz-font-size) * 0.25)) !important; }
+  .answer-bar button { font-size: clamp(14px, 3.5vw, calc(var(--quiz-font-size) * 0.16)) !important; }
+}
+.hidden { display:none !important; }
+.notice { margin-top:8px; color:#666; font-size:13px; }
+@media (max-width: 680px) { .row { grid-template-columns: 1fr; } .actions button { width: 100%; } .card { border-radius:14px; padding:16px; } }
 </style>
 </head>
 <body>
-<div class="container">
-  <div id="settings">
-    <h1>Math Quiz Settings</h1>
-    <label>Time Limit (sec): <input id="tl" type="number" value="5"></label><br><br>
-    <label>Total Questions: <input id="tq" type="number" value="10"></label><br><br>
-    <label>Series (comma or 'all'): <input id="series" type="text" value="all"></label><br><br>
-    <label>Font Size: <input id="fs" type="number" value="120"></label><br><br>
-    <label><input id="review" type="checkbox"> Review Mistakes</label><br><br>
-    <button id="startBtn">Start Quiz</button>
-    <button id="exportBtn">Export Results (CSV)</button>
-    <div id="reviewTip" style="color:gray; font-size:0.9em;"></div>
-  </div>
-  <div id="quiz" class="hidden">
-    <div class="timer" id="timer">Time left: 0s</div>
-    <div class="question" id="qText"></div>
-    <div class="answer-bar">
-      <input id="ans" type="text" autocomplete="off" autocorrect="off" autocapitalize="off">
-      <button id="submitBtn">Submit</button>
+<div class="app" id="appRoot">
+  <div class="container" id="appScroll">
+    <div id="settings" class="card">
+      <h1>Math Quiz Settings</h1>
+      <div class="row"><label>Time Limit (sec):</label><input id="tl" type="number" min="1" value="5" /></div>
+      <div class="row"><label>Total Questions:</label><input id="tq" type="number" min="1" value="10" /></div>
+      <div class="row"><label>Series (comma or "all"):</label><input id="series" type="text" value="all" /></div>
+      <div class="row"><label>Font Size:</label><input id="fs" type="number" min="12" value="120" /></div>
+      <div class="row"><label>Review Mistakes:</label><div><input id="review" type="checkbox" /><div id="reviewTip" class="notice"></div></div></div>
+      <div class="actions">
+        <button id="startBtn" type="button">Start Quiz</button>
+        <button id="exportBtn" class="secondary" type="button">Export Results (CSV)</button>
+      </div>
+    </div>
+    <div id="quiz" class="card hidden">
+      <div class="quiz-wrap">
+        <div id="timer" class="timer">Time left: 0s</div>
+        <div class="question"><span id="qText"></span></div>
+        <div class="answer-bar">
+          <input id="ans" type="text" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Your answer" />
+          <button id="submitBtn" type="button">Submit</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
+
 <script>
-const elSettings = document.getElementById('settings');
-const elQuiz = document.getElementById('quiz');
-const elStart = document.getElementById('startBtn');
-const elExport = document.getElementById('exportBtn');
-const elTL = document.getElementById('tl');
-const elTQ = document.getElementById('tq');
-const elSeries = document.getElementById('series');
-const elFS = document.getElementById('fs');
-const elReview = document.getElementById('review');
-const elReviewTip = document.getElementById('reviewTip');
-const elQText = document.getElementById('qText');
-const elAns = document.getElementById('ans');
-const elSubmit = document.getElementById('submitBtn');
-const elTimer = document.getElementById('timer');
-let quizData = [], currentIndex = 0, timerId = null, timeLeft = 0, mistakes = [];
-let allowReview = false;
+(function(){
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.matchMedia('(pointer:coarse)').matches;
+  const elSettings = document.getElementById('settings');
+  const elQuiz = document.getElementById('quiz');
+  const elStart = document.getElementById('startBtn');
+  const elExport = document.getElementById('exportBtn');
+  const elTL = document.getElementById('tl');
+  const elTQ = document.getElementById('tq');
+  const elSeries = document.getElementById('series');
+  const elFS = document.getElementById('fs');
+  const elReview = document.getElementById('review');
+  const elReviewTip = document.getElementById('reviewTip');
+  const elQText = document.getElementById('qText');
+  const elAns = document.getElementById('ans');
+  const elSubmit = document.getElementById('submitBtn');
+  const elTimer = document.getElementById('timer');
+  const scroller = document.getElementById('appScroll');
 
-function saveSettings() {
-  const s = { tl: elTL.value, tq: elTQ.value, series: elSeries.value, fs: elFS.value, allowReview, mistakes };
-  localStorage.setItem('mathQuizSettings', JSON.stringify(s));
-}
+  let quizData = [], currentIndex = 0, timerId = null, timeLeft = 0, mistakes = [], lastSubmitTs = 0;
+  let allowReview = false;
 
-function loadSettings() {
-  const s = JSON.parse(localStorage.getItem('mathQuizSettings') || '{}');
-  if (s.tl) elTL.value = s.tl;
-  if (s.tq) elTQ.value = s.tq;
-  if (s.series) elSeries.value = s.series;
-  if (s.fs) elFS.value = s.fs;
-  if (s.allowReview) { allowReview = true; elReview.checked = true; }
-  if (Array.isArray(s.mistakes)) mistakes = s.mistakes;
-}
-
-function generateQuiz() {
-  quizData = [];
-  const seriesVal = elSeries.value.trim().toLowerCase();
-  let tables = [];
-  if (seriesVal === 'all') tables = [...Array(9).keys()].map(i => i + 1);
-  else tables = seriesVal.split(',').map(v => parseInt(v.trim())).filter(v => v >= 1 && v <= 9);
-  for (let i = 0; i < parseInt(elTQ.value); i++) {
-    const a = tables[Math.floor(Math.random() * tables.length)];
-    const b = Math.floor(Math.random() * 9) + 1;
-    quizData.push({ a, b, ans: a * b });
+  function applyVh(){
+    const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+    document.documentElement.style.setProperty('--app-vh', vh + 'px');
   }
-}
+  function onVisualViewportChange(){
+    if (window.visualViewport) {
+      const off = window.visualViewport.offsetTop || 0;
+      document.documentElement.style.setProperty('--vv-offset', off + 'px');
+    }
+  }
+  applyVh(); onVisualViewportChange();
+  window.addEventListener('resize', applyVh);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => { applyVh(); onVisualViewportChange(); }, {passive:true});
+    window.visualViewport.addEventListener('scroll',  () => { onVisualViewportChange(); }, {passive:true});
+  }
 
-function showQuestion() {
-  if (currentIndex >= quizData.length) { endQuiz(); return; }
-  const q = quizData[currentIndex];
-  elQText.textContent = `${q.a} × ${q.b} = ?`;
-  elAns.value = '';
-  elAns.focus({ preventScroll: true });
-  timeLeft = parseInt(elTL.value);
-  elTimer.textContent = `Time left: ${timeLeft}s`;
-  clearInterval(timerId);
-  timerId = setInterval(() => {
-    timeLeft--;
+  function saveSettings() {
+    const s = { tl: elTL.value, tq: elTQ.value, series: elSeries.value, fs: elFS.value, allowReview, mistakes };
+    localStorage.setItem('mathQuizSettings', JSON.stringify(s));
+  }
+  function loadSettings() {
+    const s = JSON.parse(localStorage.getItem('mathQuizSettings') || '{}');
+    if (s.tl) elTL.value = s.tl;
+    if (s.tq) elTQ.value = s.tq;
+    if (s.series) elSeries.value = s.series;
+    if (s.fs) elFS.value = s.fs;
+    if (s.allowReview) { allowReview = true; elReview.checked = true; }
+    if (Array.isArray(s.mistakes)) mistakes = s.mistakes;
+    document.documentElement.style.setProperty('--quiz-font-size', (parseInt(elFS.value,10)||120) + 'px');
+  }
+
+  function generateQuiz() {
+    quizData = [];
+    const seriesVal = elSeries.value.trim().toLowerCase();
+    let tables = [];
+    if (seriesVal === 'all') tables = [...Array(9).keys()].map(i => i + 1);
+    else tables = seriesVal.split(',').map(v => parseInt(v.trim(),10)).filter(v => v >= 1 && v <= 9);
+    const total = Math.max(1, parseInt(elTQ.value,10) || 10);
+    for (let i = 0; i < total; i++) {
+      const a = tables[Math.floor(Math.random() * tables.length)];
+      const b = Math.floor(Math.random() * 9) + 1;
+      quizData.push({ a, b, ans: a * b });
+    }
+  }
+
+  function ensureFocus(fromGesture=false){
+    const tryFocus = () => {
+      elAns.focus({ preventScroll: true });
+      if (fromGesture) { try { elAns.click(); } catch(e){} }
+      try { elAns.setSelectionRange(elAns.value.length, elAns.value.length); } catch(e) {}
+    };
+    tryFocus();
+    requestAnimationFrame(() => setTimeout(tryFocus, 0));
+  }
+
+  function showQuestion() {
+    if (currentIndex >= quizData.length) { endQuiz(); return; }
+    const q = quizData[currentIndex];
+    elQText.textContent = `${q.a} × ${q.b} = ?`;
+    elAns.value = '';
+    ensureFocus(false);
+    timeLeft = Math.max(1, parseInt(elTL.value,10) || 5);
     elTimer.textContent = `Time left: ${timeLeft}s`;
-    if (timeLeft <= 0) { clearInterval(timerId); checkAnswer(); }
-  }, 1000);
-}
+    clearInterval(timerId);
+    timerId = setInterval(() => {
+      timeLeft--;
+      elTimer.textContent = `Time left: ${timeLeft}s`;
+      if (timeLeft <= 0) { clearInterval(timerId); submitAnswer(); }
+    }, 1000);
+  }
 
-function checkAnswer() {
-  const userAns = elAns.value.trim();
-  const correctAns = quizData[currentIndex].ans.toString();
-  if (userAns !== correctAns) mistakes.push(quizData[currentIndex]);
-  currentIndex++;
-  showQuestion();
-}
+  function submitAnswer(){
+    const now = performance.now();
+    if (now - lastSubmitTs < 250) return; // de-dupe click/touch
+    lastSubmitTs = now;
 
-function startQuiz() {
-  if (elReview.checked && !allowReview) return;
-  document.documentElement.style.setProperty('--quiz-font-size', elFS.value + 'px');
-  if (elReview.checked && mistakes.length) quizData = [...mistakes];
-  else generateQuiz();
-  currentIndex = 0;
-  mistakes = [];
-  elSettings.classList.add('hidden');
-  elQuiz.classList.remove('hidden');
-  showQuestion();
-}
+    const q = quizData[currentIndex];
+    const userAns = elAns.value.trim();
+    const correctAns = String(q.ans);
+    if (userAns !== correctAns) mistakes.push(q);
+    currentIndex++;
+    showQuestion();
+    ensureFocus(true);
+  }
 
-function endQuiz() {
-  clearInterval(timerId);
-  allowReview = true;
-  saveSettings();
-  if (mistakes.length === 0) {
-    alert('Perfect! All answers correct.');
-    window.close();
-  } else {
+  function startQuiz() {
+    document.documentElement.style.setProperty('--quiz-font-size', (parseInt(elFS.value,10)||120) + 'px');
+    if (elReview.checked && allowReview && mistakes.length) quizData = [...mistakes];
+    else generateQuiz();
+    currentIndex = 0;
+    mistakes = [];
+    elSettings.classList.add('hidden');
+    elQuiz.classList.remove('hidden');
+    scroller.scrollTo({top:0, behavior:'instant'});
+    showQuestion();
+  }
+
+  function endQuiz() {
+    clearInterval(timerId);
+    allowReview = true;
+    saveSettings();
+    if (mistakes.length === 0) {
+      alert('Perfect! All answers correct.');
+    } else {
+      elReviewTip.textContent = `You had ${mistakes.length} mistake(s) last round.`;
+    }
     elSettings.classList.remove('hidden');
     elQuiz.classList.add('hidden');
-    elReviewTip.textContent = `You had ${mistakes.length} mistake(s) last round.`;
   }
-}
 
-elStart.addEventListener('click', startQuiz);
-elSubmit.addEventListener('click', checkAnswer);
-elAns.addEventListener('keydown', e => { if (e.key === 'Enter') checkAnswer(); });
+  function bindSubmitEvents(){
+    const trigger = (e)=>{ e && e.preventDefault && e.preventDefault(); submitAnswer(); };
+    elSubmit.addEventListener('click', trigger);
+    elSubmit.addEventListener('touchend', trigger, {passive:false});
+  }
 
-loadSettings();
+  // Desktop Enter
+  elAns.addEventListener('keydown', e => {
+    if (!isMobile && e.key === 'Enter') {
+      e.preventDefault();
+      submitAnswer();
+    }
+  });
+
+  elStart.addEventListener('click', () => { startQuiz(); ensureFocus(true); });
+  elExport.addEventListener('click', () => {
+    if(!quizData.length){ alert('No data to export.'); return; }
+    const rows = [['A','B','Answer'], ...quizData.map(q=>[q.a,q.b,q.ans])];
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'quiz_results.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  bindSubmitEvents();
+  loadSettings();
+
+  // SW registration
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+  }
+})();
 </script>
 </body>
 </html>
