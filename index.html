@@ -20,31 +20,47 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: contain; -webk
 .card { background:#fff; border-radius:16px; box-shadow:0 6px 24px rgba(0,0,0,.08); padding:20px; }
 h1 { margin:0 0 12px; font-size:clamp(22px,3.2vw,36px); }
 input, textarea, select, button { font-size: 16px; }
+
+/* ---------- Settings page buttons ---------- */
+.actions { display:flex; gap:12px; margin-top:12px; flex-wrap: wrap; }
+button { border:0; border-radius:12px; background:#1a73e8; color:#fff; cursor:pointer; min-height:44px; }
+button.secondary { background:#e0e3eb; color:#222; }
+button:disabled { opacity:.6; cursor:not-allowed; }
+/* Desktop (default) - Bigger buttons on settings page */
+.actions button { font-size: 40px; padding: 0.8em 1.5em; }
+/* Mobile overrides for settings page */
+@media (max-width: 768px) {
+  .actions button { font-size: 28px; padding: 1em 2em; width: 100%; }
+}
+
 .row { display:grid; grid-template-columns:260px 1fr; gap:12px; align-items:center; margin:10px 0; }
 .row label { font-size: clamp(14px, 1.4vw, 20px); }
 .row input { width:100%; max-width:100%; border:1px solid #ddd; border-radius:12px; padding:12px; }
-.actions { display:flex; gap:12px; margin-top:12px; flex-wrap: wrap; }
-button { padding:14px 18px; border:0; border-radius:12px; background:#1a73e8; color:#fff; cursor:pointer; min-height:44px; }
-button.secondary { background:#e0e3eb; color:#222; }
-button:disabled { opacity:.6; cursor:not-allowed; }
+
 .card + .card { margin-top: 16px; }
+
+/* ---------- Quiz page ---------- */
 .quiz-wrap { position:relative; min-height:70%; display:grid; grid-template-rows:auto 1fr auto; }
 .timer { position:absolute; top:10px; right:12px; font-size: clamp(14px, 2vw, 28px); color:#555; }
 .question { display:flex; align-items:center; justify-content:center; text-align:center; padding:28px 12px; }
 .question span { font-weight:800; line-height:1.1; font-size: var(--quiz-font-size) !important; white-space: nowrap; flex-shrink: 0; }
+
 .answer-bar { position: sticky; bottom: 0; display:flex; gap:16px; justify-content:center; align-items:center; padding:14px; background:rgba(255,255,255,.9); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-top-left-radius:12px; border-top-right-radius:12px; }
-/* Desktop: Input = question; Button = 50% of question */
+/* Desktop quiz (unchanged): input = question; button = 50% */
 .answer-bar input { font-size: var(--quiz-font-size) !important; line-height:1.05; padding:0.2em 0.35em; min-height:1.2em; text-align:center; width:min(12ch,60%); max-width:100%; }
 .answer-bar button { font-size: calc(var(--quiz-font-size) * 0.5) !important; line-height:1.05; padding:0.3em 0.8em; min-height:1.4em; }
-/* Mobile (<=768px): Question ~42%, Input ~21%, Submit ~16% */
+
+/* Mobile quiz: shrink all fonts; cap question at 80px; input ~50%; submit ~25% */
 @media (max-width: 768px) {
-  .question span { font-size: clamp(28px, 8.5vw, calc(var(--quiz-font-size) * 0.42)) !important; }
-  .answer-bar input { font-size: clamp(18px, 5.5vw, calc(var(--quiz-font-size) * 0.21)) !important; width:min(14ch,70%); }
-  .answer-bar button { font-size: clamp(14px, 3.5vw, calc(var(--quiz-font-size) * 0.16)) !important; }
+  .row { grid-template-columns: 1fr; }
+  .question span { font-size: clamp(28px, 8.5vw, 80px) !important; }
+  .answer-bar input { font-size: clamp(14px, 4.5vw, 40px) !important; }
+  .answer-bar button { font-size: clamp(12px, 3.5vw, 20px) !important; padding: 0.8em 1.8em; }
 }
+
 .hidden { display:none !important; }
 .notice { margin-top:8px; color:#666; font-size:13px; }
-@media (max-width: 680px) { .row { grid-template-columns: 1fr; } .actions button { width: 100%; } .card { border-radius:14px; padding:16px; } }
+@media (max-width: 680px) { .card { border-radius:14px; padding:16px; } }
 </style>
 </head>
 <body>
