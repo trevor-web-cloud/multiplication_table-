@@ -1,5 +1,5 @@
-// PWA Service Worker (cache-first) - v1.5.6-ui-button-font
-const CACHE_VERSION = 'v1.5.6-ui-button-font';
+// PWA Service Worker (cache-first) - v1.6.0-v13.3
+const CACHE_VERSION = 'v1.6.0-v13.3';
 const CACHE_NAME = `math-quiz-cache-${CACHE_VERSION}`;
 const ASSETS = ['./','./index.html','./manifest.webmanifest','./sw.js'];
 

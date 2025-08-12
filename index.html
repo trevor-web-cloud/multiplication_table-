@@ -14,28 +14,30 @@
 <style>
 :root { --quiz-font-size: 120px; --vv-offset: 0px; --app-vh: 100vh; }
 *, *::before, *::after { box-sizing: border-box; }
-html, body { height: 100%; overflow: hidden; overscroll-behavior: contain; -webkit-text-size-adjust: 100%; background: #f6f7fb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #222; }
+html, body { height: 100%; overflow: hidden; overscroll-behavior: contain; -webkit-text-size-adjust: 100%; background: #f6f7fb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:#222; }
 .app { position: fixed; inset: 0; height: 100svh; height: calc(var(--app-vh)); transform: translateY(calc(-1 * var(--vv-offset))); display: flex; justify-content: center; }
 .container { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; max-width: 960px; margin: 0 auto; padding: 16px; }
 .card { background:#fff; border-radius:16px; box-shadow:0 6px 24px rgba(0,0,0,.08); padding:20px; }
 h1 { margin:0 0 12px; font-size:clamp(22px,3.2vw,36px); }
 input, textarea, select, button { font-size: 16px; }
 
-/* ---------- Settings page buttons ---------- */
+/* ---------- Settings page ---------- */
 .actions { display:flex; gap:12px; margin-top:12px; flex-wrap: wrap; }
 button { border:0; border-radius:12px; background:#1a73e8; color:#fff; cursor:pointer; min-height:44px; }
 button.secondary { background:#e0e3eb; color:#222; }
 button:disabled { opacity:.6; cursor:not-allowed; }
-/* Desktop (default) - Bigger buttons on settings page */
+/* Desktop: bigger buttons on settings */
 .actions button { font-size: 40px; padding: 0.8em 1.5em; }
-/* Mobile overrides for settings page */
+/* Mobile settings overrides */
 @media (max-width: 768px) {
   .actions button { font-size: 28px; padding: 1em 2em; width: 100%; }
 }
 
+/* Inputs */
 .row { display:grid; grid-template-columns:260px 1fr; gap:12px; align-items:center; margin:10px 0; }
 .row label { font-size: clamp(14px, 1.4vw, 20px); }
 .row input { width:100%; max-width:100%; border:1px solid #ddd; border-radius:12px; padding:12px; }
+@media (max-width: 680px) { .row { grid-template-columns: 1fr; } .card { border-radius:14px; padding:16px; } }
 
 .card + .card { margin-top: 16px; }
 
@@ -45,22 +47,28 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 .question { display:flex; align-items:center; justify-content:center; text-align:center; padding:28px 12px; }
 .question span { font-weight:800; line-height:1.1; font-size: var(--quiz-font-size) !important; white-space: nowrap; flex-shrink: 0; }
 
-.answer-bar { position: sticky; bottom: 0; display:flex; gap:16px; justify-content:center; align-items:center; padding:14px; background:rgba(255,255,255,.9); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-top-left-radius:12px; border-top-right-radius:12px; }
+.answer-bar { position: sticky; bottom: 0; display:flex; justify-content:center; align-items:center; padding:14px; background:rgba(255,255,255,.9); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-top-left-radius:12px; border-top-right-radius:12px; }
+.answer-bar form { display:flex; gap:16px; justify-content:center; align-items:center; width:100%; }
 /* Desktop quiz (unchanged): input = question; button = 50% */
 .answer-bar input { font-size: var(--quiz-font-size) !important; line-height:1.05; padding:0.2em 0.35em; min-height:1.2em; text-align:center; width:min(12ch,60%); max-width:100%; }
 .answer-bar button { font-size: calc(var(--quiz-font-size) * 0.5) !important; line-height:1.05; padding:0.3em 0.8em; min-height:1.4em; }
 
-/* Mobile quiz: shrink all fonts; cap question at 80px; input ~50%; submit ~25% */
-@media (max-width: 768px) {
-  .row { grid-template-columns: 1fr; }
+/* Mobile portrait: cap question at 80px; input ~50%; submit ~30% */
+@media (max-width: 768px) and (orientation: portrait) {
   .question span { font-size: clamp(28px, 8.5vw, 80px) !important; }
-  .answer-bar input { font-size: clamp(14px, 4.5vw, 40px) !important; }
-  .answer-bar button { font-size: clamp(12px, 3.5vw, 24px) !important; padding: 1em 2.2em; }
+  .answer-bar input { font-size: clamp(16px, 5vw, 40px) !important; }
+  .answer-bar button { font-size: clamp(14px, 3.8vw, 24px) !important; padding: 0.9em 2.0em; }
+}
+
+/* Mobile landscape: stricter caps so everything fits */
+@media (max-width: 1024px) and (orientation: landscape) {
+  .question span { font-size: clamp(20px, 6vw, 48px) !important; }
+  .answer-bar input { font-size: clamp(14px, 3vw, 24px) !important; }
+  .answer-bar button { font-size: clamp(12px, 2.6vw, 14px) !important; padding: 0.7em 1.8em; }
 }
 
 .hidden { display:none !important; }
 .notice { margin-top:8px; color:#666; font-size:13px; }
-@media (max-width: 680px) { .card { border-radius:14px; padding:16px; } }
 </style>
 </head>
 <body>
@@ -83,8 +91,10 @@ button:disabled { opacity:.6; cursor:not-allowed; }
           <div id="timer" class="timer">Time left: 0s</div>
           <div class="question"><span id="qText"></span></div>
           <div class="answer-bar">
-            <input id="ans" type="text" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Your answer" />
-            <button id="submitBtn" type="button">Submit</button>
+            <form id="answerForm" autocomplete="off">
+              <input id="ans" type="text" autocapitalize="off" autocorrect="off" autocomplete="off" enterkeyhint="send" aria-label="Your answer" />
+              <button id="submitBtn" type="submit">Submit</button>
+            </form>
           </div>
         </div>
       </div>
@@ -107,11 +117,12 @@ button:disabled { opacity:.6; cursor:not-allowed; }
   const elQText = document.getElementById('qText');
   const elAns = document.getElementById('ans');
   const elSubmit = document.getElementById('submitBtn');
+  const elForm = document.getElementById('answerForm');
   const elTimer = document.getElementById('timer');
   const scroller = document.getElementById('appScroll');
 
   let quizData = [], currentIndex = 0, timerId = null, timeLeft = 0, mistakes = [], lastSubmitTs = 0;
-  let allowReview = false;
+  let allowReview = false, composing = false;
 
   function applyVh(){
     const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
@@ -224,15 +235,25 @@ button:disabled { opacity:.6; cursor:not-allowed; }
     elQuiz.classList.add('hidden');
   }
 
-  function bindSubmitEvents(){
-    const trigger = (e)=>{ e && e.preventDefault && e.preventDefault(); submitAnswer(); };
-    elSubmit.addEventListener('click', trigger);
-    elSubmit.addEventListener('touchend', trigger, {passive:false});
-  }
+  // IME composition guard
+  elAns.addEventListener('compositionstart', () => composing = True);
+  elAns.addEventListener('compositionend',   () => composing = False);
+
+  // Form submit (keyboard "Send/Done")
+  elForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (composing) return;
+    submitAnswer();
+  });
+
+  // Click/touch submit (desktop/mobile)
+  const trigger = (e)=>{ e && e.preventDefault && e.preventDefault(); if (!composing) submitAnswer(); };
+  elSubmit.addEventListener('click', trigger);
+  elSubmit.addEventListener('touchend', trigger, {passive:false});
 
   // Desktop Enter
   elAns.addEventListener('keydown', e => {
-    if (!isMobile && e.key === 'Enter') {
+    if (!isMobile && e.key === 'Enter' && !composing) {
       e.preventDefault();
       submitAnswer();
     }
@@ -251,7 +272,6 @@ button:disabled { opacity:.6; cursor:not-allowed; }
     URL.revokeObjectURL(a.href);
   });
 
-  bindSubmitEvents();
   loadSettings();
 
   // SW registration
