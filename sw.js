@@ -1,5 +1,5 @@
-// PWA Service Worker (cache-first) - v1.7.1-v13.4.1
-const CACHE_VERSION = 'v1.7.1-v13.4.1';
+// PWA Service Worker (cache-first) - v1.7.4-v13.4.4
+const CACHE_VERSION = 'v1.7.4-v13.4.4';
 const CACHE_NAME = `math-quiz-cache-${CACHE_VERSION}`;
 const ASSETS = ['./','./index.html','./manifest.webmanifest','./sw.js'];
 
