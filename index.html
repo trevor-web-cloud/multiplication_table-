@@ -33,11 +33,13 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 .question { display:flex; align-items:center; justify-content:center; text-align:center; padding:28px 12px; }
 .question span { font-weight:800; line-height:1.1; font-size: var(--quiz-font-size) !important; white-space: nowrap; flex-shrink: 0; }
 .answer-bar { position: sticky; bottom: 0; display:flex; gap:16px; justify-content:center; align-items:center; padding:14px; background:rgba(255,255,255,.9); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-top-left-radius:12px; border-top-right-radius:12px; }
+/* Desktop: Input = question; Button = 50% of question */
 .answer-bar input { font-size: var(--quiz-font-size) !important; line-height:1.05; padding:0.2em 0.35em; min-height:1.2em; text-align:center; width:min(12ch,60%); max-width:100%; }
 .answer-bar button { font-size: calc(var(--quiz-font-size) * 0.5) !important; line-height:1.05; padding:0.3em 0.8em; min-height:1.4em; }
+/* Mobile (<=768px): Question ~42%, Input ~21%, Submit ~16% */
 @media (max-width: 768px) {
-  .question span { font-size: clamp(32px, 10vw, calc(var(--quiz-font-size) * 0.5)) !important; }
-  .answer-bar input { font-size: clamp(20px, 6vw, calc(var(--quiz-font-size) * 0.25)) !important; }
+  .question span { font-size: clamp(28px, 8.5vw, calc(var(--quiz-font-size) * 0.42)) !important; }
+  .answer-bar input { font-size: clamp(18px, 5.5vw, calc(var(--quiz-font-size) * 0.21)) !important; width:min(14ch,70%); }
   .answer-bar button { font-size: clamp(14px, 3.5vw, calc(var(--quiz-font-size) * 0.16)) !important; }
 }
 .hidden { display:none !important; }
@@ -46,32 +48,32 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 </style>
 </head>
 <body>
-<div class="app" id="appRoot">
-  <div class="container" id="appScroll">
-    <div id="settings" class="card">
-      <h1>Math Quiz Settings</h1>
-      <div class="row"><label>Time Limit (sec):</label><input id="tl" type="number" min="1" value="5" /></div>
-      <div class="row"><label>Total Questions:</label><input id="tq" type="number" min="1" value="10" /></div>
-      <div class="row"><label>Series (comma or "all"):</label><input id="series" type="text" value="all" /></div>
-      <div class="row"><label>Font Size:</label><input id="fs" type="number" min="12" value="120" /></div>
-      <div class="row"><label>Review Mistakes:</label><div><input id="review" type="checkbox" /><div id="reviewTip" class="notice"></div></div></div>
-      <div class="actions">
-        <button id="startBtn" type="button">Start Quiz</button>
-        <button id="exportBtn" class="secondary" type="button">Export Results (CSV)</button>
+  <div class="app" id="appRoot">
+    <div class="container" id="appScroll">
+      <div id="settings" class="card">
+        <h1>Math Quiz Settings</h1>
+        <div class="row"><label>Time Limit (sec):</label><input id="tl" type="number" min="1" value="5" /></div>
+        <div class="row"><label>Total Questions:</label><input id="tq" type="number" min="1" value="10" /></div>
+        <div class="row"><label>Series (comma or "all"):</label><input id="series" type="text" value="all" /></div>
+        <div class="row"><label>Font Size:</label><input id="fs" type="number" min="12" value="120" /></div>
+        <div class="row"><label>Review Mistakes:</label><div><input id="review" type="checkbox" /><div id="reviewTip" class="notice"></div></div></div>
+        <div class="actions">
+          <button id="startBtn" type="button">Start Quiz</button>
+          <button id="exportBtn" class="secondary" type="button">Export Results (CSV)</button>
+        </div>
       </div>
-    </div>
-    <div id="quiz" class="card hidden">
-      <div class="quiz-wrap">
-        <div id="timer" class="timer">Time left: 0s</div>
-        <div class="question"><span id="qText"></span></div>
-        <div class="answer-bar">
-          <input id="ans" type="text" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Your answer" />
-          <button id="submitBtn" type="button">Submit</button>
+      <div id="quiz" class="card hidden">
+        <div class="quiz-wrap">
+          <div id="timer" class="timer">Time left: 0s</div>
+          <div class="question"><span id="qText"></span></div>
+          <div class="answer-bar">
+            <input id="ans" type="text" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Your answer" />
+            <button id="submitBtn" type="button">Submit</button>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
 <script>
 (function(){
