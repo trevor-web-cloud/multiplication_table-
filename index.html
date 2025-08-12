@@ -43,7 +43,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .answer-bar input{line-height:1.05;padding:.2em .35em;min-height:1.2em;text-align:center;width:min(12ch,60%);max-width:100%}
 .answer-bar button{line-height:1.05;padding:.9em 2.0em;min-height:1.4em}
 
-/* Mobile portrait caps (dynamic sizes handled by JS; these are fallbacks) */
+/* Mobile portrait caps (fallbacks; runtime will override) */
 @media(max-width:768px) and (orientation:portrait){
   .question span{font-size:clamp(28px,8.5vw,80px)}
   .answer-bar input{font-size:clamp(16px,5vw,40px)}
@@ -64,21 +64,20 @@ body.compact .question span{font-size:36px!important}
 body.compact .answer-bar input{font-size:18px!important}
 body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
 
-/* Rotate guard overlay for landscape (MOBILE ONLY via JS adds .show) */
+/* Rotate guard overlay (mobile only via JS; default hidden) */
 .rotate-guard{position:fixed;inset:0;background:#000;color:#fff;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;z-index:9999}
 .rotate-guard h2{margin:0 0 12px;font-size:28px}
 .rotate-guard p{margin:0;font-size:16px;color:#ddd}
-@media (orientation:landscape){ .rotate-guard.show{display:flex} }
 
 .hidden{display:none!important}
 .notice{margin-top:8px;color:#666;font-size:13px}
 </style>
 </head>
 <body>
-<div class="rotate-guard" id="rotateGuard" aria-hidden="true">
+<div class="rotate-guard" id="rotateGuard" role="dialog" aria-live="polite" aria-label="Rotate device notice">
   <div>
     <h2>Please rotate your device</h2>
-    <p>This app only supports portrait mode.</p>
+    <p>This app only supports portrait mode on mobile.</p>
   </div>
 </div>
 
@@ -88,7 +87,7 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
       <h1>Math Quiz Settings</h1>
       <div class="row"><label>Time Limit (sec):</label><input id="tl" type="number" min="1" value="5" /></div>
       <div class="row"><label>Total Questions:</label><input id="tq" type="number" min="1" value="10" /></div>
-      <div class="row"><label>Series (comma or \"all\"):</label><input id="series" type="text" value="all" /></div>
+      <div class="row"><label>Series (comma or "all"):</label><input id="series" type="text" value="all" /></div>
       <div class="row"><label>Font Size (base, px):</label><input id="fs" type="number" min="12" value="120" /></div>
       <div class="row"><label>Review Mistakes:</label><div><input id="review" type="checkbox" /><div id="reviewTip" class="notice"></div></div></div>
       <div class="actions">
@@ -115,10 +114,8 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
 
 <script>
 (function(){
-  // Detect mobile by UA ONLY (avoid pointer:coarse to prevent desktop Chrome mis-detection)
-  function isMobileDevice(){
-    return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  }
+  const ua = navigator.userAgent || '';
+  function isMobileDevice(){ return /Mobi|Android|iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints>0 && Math.min(window.innerWidth, window.innerHeight) <= 1024); }
 
   const elSettings = document.getElementById('settings');
   const elQuiz = document.getElementById('quiz');
@@ -148,13 +145,13 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
   function onVisualViewportChange(){
     if (window.visualViewport) {
       const off = window.visualViewport.offsetTop || 0;
-      document.documentElement.style.setProperty('--vv-offset', 0 + 'px');
+      document.documentElement.style.setProperty('--vv-offset', '0px');
     }
   }
 
   /* ===== dynamic font sizing by available height ===== */
   function adjustFontSizes() {
-    const isLandscape = window.matchMedia('(orientation: landscape)').matches;
+    const isLandscape = window.innerWidth > window.innerHeight;
     const h = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
     let q = isLandscape ? h * 0.15 : h * 0.20;
     q = Math.min(q, isLandscape ? 44 : 80);
@@ -176,7 +173,7 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     if (vv) {
       const kb = Math.max(0, ih - vv.height - (vv.offsetTop || 0));
       document.documentElement.style.setProperty('--kb-bottom', kb + 'px');
-      const compact = vv.height < 380 || (window.matchMedia('(orientation: landscape)').matches && vv.height < 420);
+      const compact = vv.height < 380 || (window.innerWidth > window.innerHeight && vv.height < 420);
       document.body.classList.toggle('compact', compact);
     } else {
       document.documentElement.style.setProperty('--kb-bottom', '0px');
@@ -186,10 +183,13 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
 
   /* ===== rotate guard (MOBILE ONLY) ===== */
   function updateRotateGuard(){
-    const landscape = window.matchMedia('(orientation: landscape)').matches;
+    const landscape = window.innerWidth > window.innerHeight;
     const mobile = isMobileDevice();
-    rotateGuard.classList.toggle('show', landscape && mobile);
-    rotateGuard.setAttribute('aria-hidden', String(!(landscape && mobile)));
+    if (mobile && landscape) {
+      rotateGuard.style.display = 'flex';
+    } else {
+      rotateGuard.style.display = 'none';
+    }
   }
 
   function saveSettings() {
@@ -287,9 +287,11 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
   // IME-safe submit
   elAns.addEventListener('compositionstart', () => { composing = true; });
   elAns.addEventListener('compositionend',   () => { composing = false; });
+
   elForm.addEventListener('submit', (e) => { e.preventDefault(); if (!composing) submitAnswer(); });
   elAns.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !composing) { e.preventDefault(); submitAnswer(); } });
   elAns.addEventListener('beforeinput', (e) => { if (e.inputType === 'insertLineBreak' && !composing) { e.preventDefault(); submitAnswer(); } });
+
   const trigger = (e)=>{ e && e.preventDefault && e.preventDefault(); if (!composing) submitAnswer(); };
   elSubmit.addEventListener('click', trigger);
   elSubmit.addEventListener('touchend', trigger, {passive:false});
@@ -306,6 +308,19 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     a.click();
     URL.revokeObjectURL(a.href);
   });
+
+  function init(){
+    applyVh(); onVisualViewportChange();
+    adjustFontSizes(); updateKeyboardInset(); updateRotateGuard();
+    loadSettings();
+  }
+  document.addEventListener('DOMContentLoaded', init);
+  window.addEventListener('resize', () => { applyVh(); adjustFontSizes(); updateKeyboardInset(); updateRotateGuard(); });
+  window.addEventListener('orientationchange', () => { setTimeout(()=>{ applyVh(); adjustFontSizes(); updateKeyboardInset(); updateRotateGuard(); }, 50); });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => { applyVh(); adjustFontSizes(); updateKeyboardInset(); }, {passive:true});
+    window.visualViewport.addEventListener('scroll',  () => { onVisualViewportChange(); updateKeyboardInset(); }, {passive:true});
+  }
 })();
 </script>
 </body>
