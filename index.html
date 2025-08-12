@@ -45,27 +45,12 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 .quiz-wrap { position:relative; min-height:70%; display:grid; grid-template-rows:auto 1fr auto; }
 .timer { position:absolute; top:10px; right:12px; font-size: clamp(14px, 2vw, 28px); color:#555; }
 .question { display:flex; align-items:center; justify-content:center; text-align:center; padding:28px 12px; }
-.question span { font-weight:800; line-height:1.1; font-size: var(--quiz-font-size) !important; white-space: nowrap; flex-shrink: 0; }
+.question span { font-weight:800; line-height:1.1; font-size: var(--quiz-font-size); white-space: nowrap; flex-shrink: 0; }
 
 .answer-bar { position: sticky; bottom: 0; display:flex; justify-content:center; align-items:center; padding:14px; background:rgba(255,255,255,.9); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-top-left-radius:12px; border-top-right-radius:12px; }
 .answer-bar form { display:flex; gap:16px; justify-content:center; align-items:center; width:100%; }
-/* Desktop quiz (unchanged): input = question; button = 50% */
-.answer-bar input { font-size: var(--quiz-font-size) !important; line-height:1.05; padding:0.2em 0.35em; min-height:1.2em; text-align:center; width:min(12ch,60%); max-width:100%; }
-.answer-bar button { font-size: calc(var(--quiz-font-size) * 0.5) !important; line-height:1.05; padding:0.3em 0.8em; min-height:1.4em; }
-
-/* Mobile portrait: cap question at 80px; input ~50%; submit ~30% */
-@media (max-width: 768px) and (orientation: portrait) {
-  .question span { font-size: clamp(28px, 8.5vw, 80px) !important; }
-  .answer-bar input { font-size: clamp(16px, 5vw, 40px) !important; }
-  .answer-bar button { font-size: clamp(14px, 3.8vw, 24px) !important; padding: 0.9em 2.0em; }
-}
-
-/* Mobile landscape: stricter caps so everything fits */
-@media (max-width: 1024px) and (orientation: landscape) {
-  .question span { font-size: clamp(20px, 6vw, 48px) !important; }
-  .answer-bar input { font-size: clamp(14px, 3vw, 24px) !important; }
-  .answer-bar button { font-size: clamp(12px, 2.6vw, 14px) !important; padding: 0.7em 1.8em; }
-}
+.answer-bar input { line-height:1.05; padding:0.2em 0.35em; min-height:1.2em; text-align:center; width:min(12ch,60%); max-width:100%; }
+.answer-bar button { line-height:1.05; padding:0.9em 2.0em; min-height:1.4em; }
 
 .hidden { display:none !important; }
 .notice { margin-top:8px; color:#666; font-size:13px; }
@@ -79,7 +64,7 @@ button:disabled { opacity:.6; cursor:not-allowed; }
         <div class="row"><label>Time Limit (sec):</label><input id="tl" type="number" min="1" value="5" /></div>
         <div class="row"><label>Total Questions:</label><input id="tq" type="number" min="1" value="10" /></div>
         <div class="row"><label>Series (comma or "all"):</label><input id="series" type="text" value="all" /></div>
-        <div class="row"><label>Font Size:</label><input id="fs" type="number" min="12" value="120" /></div>
+        <div class="row"><label>Font Size (base, px):</label><input id="fs" type="number" min="12" value="120" /></div>
         <div class="row"><label>Review Mistakes:</label><div><input id="review" type="checkbox" /><div id="reviewTip" class="notice"></div></div></div>
         <div class="actions">
           <button id="startBtn" type="button">Start Quiz</button>
@@ -92,7 +77,8 @@ button:disabled { opacity:.6; cursor:not-allowed; }
           <div class="question"><span id="qText"></span></div>
           <div class="answer-bar">
             <form id="answerForm" autocomplete="off">
-              <input id="ans" type="text" autocapitalize="off" autocorrect="off" autocomplete="off" enterkeyhint="send" aria-label="Your answer" />
+              <input id="ans" type="text" inputmode="text" enterkeyhint="send"
+                     autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Your answer" />
               <button id="submitBtn" type="submit">Submit</button>
             </form>
           </div>
@@ -111,7 +97,7 @@ button:disabled { opacity:.6; cursor:not-allowed; }
   const elTL = document.getElementById('tl');
   const elTQ = document.getElementById('tq');
   const elSeries = document.getElementById('series');
-  const elFS = document.getElementById('fs');
+  const elFS = document.getElementById('fs'); // base (desktop) font size
   const elReview = document.getElementById('review');
   const elReviewTip = document.getElementById('reviewTip');
   const elQText = document.getElementById('qText');
@@ -124,6 +110,7 @@ button:disabled { opacity:.6; cursor:not-allowed; }
   let quizData = [], currentIndex = 0, timerId = null, timeLeft = 0, mistakes = [], lastSubmitTs = 0;
   let allowReview = false, composing = false;
 
+  /* ===== viewport height stabilization (iOS) ===== */
   function applyVh(){
     const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
     document.documentElement.style.setProperty('--app-vh', vh + 'px');
@@ -137,10 +124,38 @@ button:disabled { opacity:.6; cursor:not-allowed; }
   applyVh(); onVisualViewportChange();
   window.addEventListener('resize', applyVh);
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', () => { applyVh(); onVisualViewportChange(); }, {passive:true});
+    window.visualViewport.addEventListener('resize', () => { applyVh(); onVisualViewportChange(); adjustFontSizes(); }, {passive:true});
     window.visualViewport.addEventListener('scroll',  () => { onVisualViewportChange(); }, {passive:true});
   }
 
+  /* ===== dynamic font sizing by available height ===== */
+  function adjustFontSizes() {
+    const app = document.querySelector('.app');
+    const isLandscape = window.innerWidth > window.innerHeight;
+    const h = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+
+    // Base sizes derived from height
+    let q = isLandscape ? h * 0.15 : h * 0.20; // question
+    // Caps to keep UI fitting
+    q = Math.min(q, isLandscape ? 44 : 80);
+    q = Math.max(q, 20); // lower bound
+
+    const a = q * 0.50;  // answer input
+    const s = q * 0.30;  // submit button
+
+    // Apply sizes
+    const qEl = document.querySelector('.question span');
+    const aEl = document.querySelector('.answer-bar input');
+    const sEl = document.querySelector('.answer-bar button');
+    if (qEl) qEl.style.fontSize = q + 'px';
+    if (aEl) aEl.style.fontSize = a + 'px';
+    if (sEl) sEl.style.fontSize = s + 'px';
+  }
+  window.addEventListener('resize', adjustFontSizes);
+  window.addEventListener('orientationchange', adjustFontSizes);
+  document.addEventListener('DOMContentLoaded', adjustFontSizes);
+
+  /* ===== settings persistence ===== */
   function saveSettings() {
     const s = { tl: elTL.value, tq: elTQ.value, series: elSeries.value, fs: elFS.value, allowReview, mistakes };
     localStorage.setItem('mathQuizSettings', JSON.stringify(s));
@@ -156,6 +171,7 @@ button:disabled { opacity:.6; cursor:not-allowed; }
     document.documentElement.style.setProperty('--quiz-font-size', (parseInt(elFS.value,10)||120) + 'px');
   }
 
+  /* ===== quiz generation ===== */
   function generateQuiz() {
     quizData = [];
     const seriesVal = elSeries.value.trim().toLowerCase();
@@ -170,6 +186,7 @@ button:disabled { opacity:.6; cursor:not-allowed; }
     }
   }
 
+  /* ===== focus helper ===== */
   function ensureFocus(fromGesture=false){
     const tryFocus = () => {
       elAns.focus({ preventScroll: true });
@@ -180,12 +197,14 @@ button:disabled { opacity:.6; cursor:not-allowed; }
     requestAnimationFrame(() => setTimeout(tryFocus, 0));
   }
 
+  /* ===== quiz flow ===== */
   function showQuestion() {
     if (currentIndex >= quizData.length) { endQuiz(); return; }
     const q = quizData[currentIndex];
     elQText.textContent = `${q.a} × ${q.b} = ?`;
     elAns.value = '';
     ensureFocus(false);
+    adjustFontSizes();
     timeLeft = Math.max(1, parseInt(elTL.value,10) || 5);
     elTimer.textContent = `Time left: ${timeLeft}s`;
     clearInterval(timerId);
@@ -198,7 +217,7 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 
   function submitAnswer(){
     const now = performance.now();
-    if (now - lastSubmitTs < 250) return; // de-dupe click/touch
+    if (now - lastSubmitTs < 250) return; // de-dupe
     lastSubmitTs = now;
 
     const q = quizData[currentIndex];
@@ -235,25 +254,22 @@ button:disabled { opacity:.6; cursor:not-allowed; }
     elQuiz.classList.add('hidden');
   }
 
-  // IME composition guard
-  elAns.addEventListener('compositionstart', () => composing = True);
-  elAns.addEventListener('compositionend',   () => composing = False);
+  /* ===== IME-safe submit (iOS/Android) ===== */
+  elAns.addEventListener('compositionstart', () => { composing = true; });
+  elAns.addEventListener('compositionend',   () => { composing = false; });
 
-  // Form submit (keyboard "Send/Done")
   elForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (composing) return;
-    submitAnswer();
+    if (!composing) submitAnswer();
   });
 
-  // Click/touch submit (desktop/mobile)
   const trigger = (e)=>{ e && e.preventDefault && e.preventDefault(); if (!composing) submitAnswer(); };
   elSubmit.addEventListener('click', trigger);
   elSubmit.addEventListener('touchend', trigger, {passive:false});
 
-  // Desktop Enter
-  elAns.addEventListener('keydown', e => {
-    if (!isMobile && e.key === 'Enter' && !composing) {
+  // Allow Enter on all devices
+  elAns.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !composing) {
       e.preventDefault();
       submitAnswer();
     }
