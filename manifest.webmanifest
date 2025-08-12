@@ -1,9 +1,0 @@
-{
-  "name": "Math Quiz",
-  "short_name": "MathQuiz",
-  "start_url": "./?source=pwa",
-  "scope": "./",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#1a73e8"
-}
