@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>Math Quiz (No PWA)</title>
+<title>Math Quiz (Updated)</title>
 <style>
 :root { --quiz-font-size: 120px; --vv-offset: 0px; --app-vh: 100vh; --kb-bottom: 0px; }
 *{box-sizing:border-box}
@@ -29,20 +29,27 @@ button:disabled{opacity:.6;cursor:not-allowed}
 
 .card+.card{margin-top:16px}
 
-/* Quiz layout: grid with topbar (timer), question center, answer fixed at bottom */
+/* Quiz layout */
 .quiz-wrap{position:relative;display:grid;grid-template-rows:44px 1fr auto;min-height:70%}
-.topbar{display:flex;align-items:center;justify-content:flex-end;padding:8px 12px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px}
+.topbar .left{display:flex;gap:12px;align-items:center}
 .timer{font-size:clamp(14px,2vw,28px);color:#555}
-.question{display:flex;align-items:center;justify-content:center;text-align:center;padding:16px 12px}
-.question span{font-weight:800;line-height:1.1;font-size:var(--quiz-font-size);white-space:nowrap;flex-shrink:0}
+.progress{font-size:clamp(14px,2vw,22px);color:#444}
+.score{font-weight:700}
 
-/* Keyboard-aware answer bar: fixed + bottom inset var */
+.question{display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;text-align:center;padding:16px 12px}
+.question span{font-weight:800;line-height:1.1;font-size:var(--quiz-font-size);white-space:nowrap;flex-shrink:0}
+.feedback{min-height:1.8em;font-size:clamp(14px,2.6vw,22px)}
+.feedback.ok{color:#0a8a3a}
+.feedback.no{color:#c62828}
+
+/* Answer bar */
 .answer-bar{position:fixed;left:0;right:0;bottom:calc(var(--kb-bottom) + env(safe-area-inset-bottom));display:flex;justify-content:center;align-items:center;padding:14px;background:rgba(255,255,255,.95);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border-top-left-radius:12px;border-top-right-radius:12px;box-shadow:0 -6px 18px rgba(0,0,0,.06);transition:bottom .1s ease}
 .answer-bar form{display:flex;gap:16px;justify-content:center;align-items:center;width:100%}
 .answer-bar input{line-height:1.05;padding:.2em .35em;min-height:1.2em;text-align:center;width:min(12ch,60%);max-width:100%}
 .answer-bar button{line-height:1.05;padding:.9em 2.0em;min-height:1.4em}
 
-/* Mobile portrait caps (fallbacks; JS does dynamic sizes) */
+/* Mobile portrait caps */
 @media(max-width:768px) and (orientation:portrait){
   .question span{font-size:clamp(28px,8.5vw,80px)}
   .answer-bar input{font-size:clamp(16px,5vw,40px)}
@@ -74,7 +81,7 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
 </style>
 </head>
 <body>
-<div class="rotate-guard" id="rotateGuard">
+<div class="rotate-guard" id="rotateGuard" aria-hidden="true">
   <div>
     <h2>Please rotate your device</h2>
     <p>This app only supports portrait mode.</p>
@@ -83,32 +90,37 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
 
 <div class="app" id="appRoot">
   <div class="container" id="appScroll">
-    <div id="settings" class="card">
-      <h1>Math Quiz Settings</h1>
-      <div class="row"><label>Time Limit (sec):</label><input id="tl" type="number" min="1" value="5" /></div>
-      <div class="row"><label>Total Questions:</label><input id="tq" type="number" min="1" value="10" /></div>
-      <div class="row"><label>Series (comma or "all"):</label><input id="series" type="text" value="all" /></div>
-      <div class="row"><label>Font Size (base, px):</label><input id="fs" type="number" min="12" value="120" /></div>
-      <div class="row"><label>Review Mistakes:</label><div><input id="review" type="checkbox" /><div id="reviewTip" class="notice"></div></div></div>
+    <div id="settings" class="card" aria-labelledby="title">
+      <h1 id="title">Math Quiz Settings</h1>
+      <div class="row"><label for="tl">Time Limit (sec):</label><input id="tl" type="number" min="1" value="5" /></div>
+      <div class="row"><label for="tq">Total Questions:</label><input id="tq" type="number" min="1" value="10" /></div>
+      <div class="row"><label for="series">Series (comma or "all"):</label><input id="series" type="text" value="all" /></div>
+      <div class="row"><label for="fs">Font Size (base, px):</label><input id="fs" type="number" min="12" value="120" /></div>
+      <div class="row"><label for="review">Review Mistakes:</label><div><input id="review" type="checkbox" /><div id="reviewTip" class="notice"></div></div></div>
       <div class="actions">
         <button id="startBtn" type="button">Start Quiz</button>
         <button id="exportBtn" class="secondary" type="button">Export Results (CSV)</button>
       </div>
     </div>
 
-    <div id="quiz" class="card hidden">
+    <div id="quiz" class="card hidden" aria-live="polite">
       <div class="quiz-wrap">
         <div class="topbar">
-          <div id="timer" class="timer">Time left: 0s</div>
+          <div class="left">
+            <div id="progress" class="progress" aria-live="polite">Q 0/0</div>
+            <div class="progress"><span>Score:</span> <span id="score" class="score">0</span></div>
+          </div>
+          <div id="timer" class="timer" aria-live="polite">Time left: 0s</div>
         </div>
 
         <div class="question">
           <span id="qText"></span>
+          <div id="feedback" class="feedback" aria-live="polite"></div>
         </div>
 
         <div class="answer-bar">
           <form id="answerForm" autocomplete="off">
-            <input id="ans" type="text" inputmode="text" enterkeyhint="send"
+            <input id="ans" type="text" inputmode="numeric" enterkeyhint="send"
                    autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Your answer" />
             <button id="submitBtn" type="submit">Submit</button>
           </form>
@@ -145,10 +157,14 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
   const elSubmit = document.getElementById('submitBtn');
   const elForm = document.getElementById('answerForm');
   const elTimer = document.getElementById('timer');
+  const elProgress = document.getElementById('progress');
+  const elScore = document.getElementById('score');
+  const elFeedback = document.getElementById('feedback');
   const rotateGuard = document.getElementById('rotateGuard');
 
-  let quizData = [], currentIndex = 0, timerId = null, timeLeft = 0, mistakes = [], lastSubmitTs = 0;
-  let allowReview = false, composing = false;
+  let quizData = [], currentIndex = 0, timerId = null, timeLeft = 0;
+  let mistakes = [], lastSubmitTs = -1, allowReview = false, composing = false;
+  let score = 0, history = [];
 
   function tryLockPortrait(){
     if (screen.orientation && screen.orientation.lock) {
@@ -219,14 +235,27 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     if (s.allowReview) { allowReview = true; elReview.checked = true; }
     if (Array.isArray(s.mistakes)) mistakes = s.mistakes;
     document.documentElement.style.setProperty('--quiz-font-size', (parseInt(elFS.value,10)||120) + 'px');
+    updateReviewTip();
   }
 
-  function generateQuiz() {
-    quizData = [];
+  function updateReviewTip(){
+    if (!elReview) return;
+    const m = mistakes.length || 0;
+    elReviewTip.textContent = m ? `可複習 ${m} 題錯題（勾選後將以錯題清單出題）` : '目前沒有錯題可複習';
+  }
+
+  function parseSeries(){
     const seriesVal = elSeries.value.trim().toLowerCase();
     let tables = [];
     if (seriesVal === 'all') tables = [...Array(9).keys()].map(i => i + 1);
     else tables = seriesVal.split(',').map(v => parseInt(v.trim(),10)).filter(v => v >= 1 && v <= 9);
+    if (tables.length === 0) tables = [1];
+    return tables;
+  }
+
+  function generateQuiz() {
+    quizData = [];
+    const tables = parseSeries();
     const total = Math.max(1, parseInt(elTQ.value,10) || 10);
     for (let i = 0; i < total; i++) {
       const a = tables[Math.floor(Math.random() * tables.length)];
@@ -245,46 +274,83 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     requestAnimationFrame(() => setTimeout(tryFocus, 0));
   }
 
+  function updateTopbar(){
+    elProgress.textContent = `Q ${Math.min(currentIndex+1, quizData.length)}/${quizData.length}`;
+    elScore.textContent = String(score);
+  }
+
   function showQuestion() {
     if (currentIndex >= quizData.length) { endQuiz(); return; }
     const q = quizData[currentIndex];
     elQText.textContent = `${q.a} × ${q.b} = ?`;
+    elFeedback.textContent = '';
+    elFeedback.className = 'feedback';
     elAns.value = '';
+    elSubmit.disabled = false;
     ensureFocus(false);
     adjustFontSizes();
     updateKeyboardInset();
     const qEl = document.querySelector('.question');
     if (qEl) qEl.scrollIntoView({block:'center',behavior:'instant'});
-    timeLeft = Math.max(1, parseInt(elTL.value,10) || 5);
+    const tl = Math.max(1, parseInt(elTL.value,10) || 5);
+    timeLeft = tl;
     elTimer.textContent = `Time left: ${timeLeft}s`;
     clearInterval(timerId);
+    const startTs = performance.now();
     timerId = setInterval(() => {
       timeLeft--;
       elTimer.textContent = `Time left: ${timeLeft}s`;
-      if (timeLeft <= 0) { clearInterval(timerId); submitAnswer(); }
+      if (timeLeft <= 0) {
+        clearInterval(timerId);
+        submitAnswer({ force: true, usedMs: performance.now()-startTs });
+      }
     }, 1000);
   }
 
-  function submitAnswer(){
+  function submitAnswer(opts={}){
     const now = performance.now();
-    if (now - lastSubmitTs < 250) return;
+    if (now - lastSubmitTs < 150) return; // light debounce
     lastSubmitTs = now;
+    if (elSubmit.disabled) return;
+    elSubmit.disabled = true;
+
     const q = quizData[currentIndex];
-    const userAns = elAns.value.trim();
+    const userAnsRaw = elAns.value.trim();
+    const userAns = userAnsRaw === '' ? '∅' : userAnsRaw;
     const correctAns = String(q.ans);
-    if (userAns !== correctAns) mistakes.push(q);
+    const ok = userAns === correctAns;
+    const usedMs = opts.usedMs || ((Math.max(1, parseInt(elTL.value,10) || 5) - timeLeft) * 1000);
+
+    // record history
+    history.push({ a:q.a, b:q.b, correct: q.ans, your: userAns, ok, usedMs: Math.round(usedMs) , ts: new Date().toISOString() });
+
+    // mistakes for review
+    if (!ok) mistakes.push(q);
+    if (ok) score++;
+
+    // feedback UI
+    elFeedback.textContent = ok ? '✓ Correct' : `✗ Incorrect (Ans: ${correctAns})`;
+    elFeedback.className = 'feedback ' + (ok ? 'ok' : 'no');
+
+    // next question
+    clearInterval(timerId);
     currentIndex++;
-    showQuestion();
-    ensureFocus(true);
+    updateTopbar();
+    setTimeout(() => { showQuestion(); ensureFocus(true); }, 320);
   }
 
   function startQuiz() {
     tryLockPortrait();
     document.documentElement.style.setProperty('--quiz-font-size', (parseInt(elFS.value,10)||120) + 'px');
-    if (elReview.checked && allowReview && mistakes.length) quizData = [...mistakes];
-    else generateQuiz();
+    score = 0; history = [];
+    if (elReview.checked && allowReview && mistakes.length) {
+      quizData = [...mistakes];
+    } else {
+      generateQuiz();
+    }
     currentIndex = 0;
     mistakes = [];
+    updateTopbar();
     elSettings.classList.add('hidden');
     elQuiz.classList.remove('hidden');
     showQuestion();
@@ -294,30 +360,39 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     clearInterval(timerId);
     allowReview = true;
     saveSettings();
+    updateReviewTip();
     if (mistakes.length === 0) alert('Perfect! All answers correct.');
     elSettings.classList.remove('hidden');
     elQuiz.classList.add('hidden');
   }
 
-  // IME-safe submit
+  // IME-safe events
   elAns.addEventListener('compositionstart', () => { composing = true; });
   elAns.addEventListener('compositionend',   () => { composing = false; });
   elForm.addEventListener('submit', (e) => { e.preventDefault(); if (!composing) submitAnswer(); });
   elAns.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !composing){ e.preventDefault(); submitAnswer(); } });
   elAns.addEventListener('beforeinput', (e) => { if (e.inputType === 'insertLineBreak' && !composing){ e.preventDefault(); submitAnswer(); } });
-  const trigger = (e)=>{ e && e.preventDefault && e.preventDefault(); if (!composing) submitAnswer(); };
-  document.getElementById('submitBtn').addEventListener('click', trigger);
-  document.getElementById('submitBtn').addEventListener('touchend', trigger, {passive:false});
 
-  document.getElementById('startBtn').addEventListener('click', () => { startQuiz(); ensureFocus(true); });
-  document.getElementById('exportBtn').addEventListener('click', () => {
-    if(!quizData.length){ alert('No data to export.'); return; }
-    const rows = [['A','B','Answer'], ...quizData.map(q=>[q.a,q.b,q.ans])];
+  // Prefer pointer events to avoid click/touch double-fire; ignore composing here (button is an explicit action)
+  const onSubmitPress = (e)=>{ e && e.preventDefault && e.preventDefault(); composing = false; submitAnswer(); };
+  elSubmit.addEventListener('pointerup', onSubmitPress);
+  elSubmit.addEventListener('click', onSubmitPress); // fallback (desktop)
+
+  elStart.addEventListener('click', () => { startQuiz(); ensureFocus(true); });
+
+  elExport.addEventListener('click', () => {
+    if(!history.length){ alert('No data to export. Complete a quiz first.'); return; }
+    const rows = [[
+      'A','B','CorrectAnswer','YourAnswer','IsCorrect','TimeUsed(ms)','Timestamp'
+    ], ...history.map(r=>[r.a,r.b,r.correct,r.your,r.ok?1:0,r.usedMs,r.ts])];
     const csv = rows.map(r => r.join(',')).join('\n');
     const blob = new Blob([csv], {type:'text/csv'});
     const a = document.createElement('a');
+    const pad = (n)=>String(n).padStart(2,'0');
+    const d = new Date();
+    const fname = `quiz_results_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.csv`;
     a.href = URL.createObjectURL(blob);
-    a.download = 'quiz_results.csv';
+    a.download = fname;
     a.click();
     URL.revokeObjectURL(a.href);
   });
