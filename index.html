@@ -6,44 +6,47 @@
 <title>Math Quiz (No PWA)</title>
 <style>
 :root { --quiz-font-size: 120px; --vv-offset: 0px; --app-vh: 100vh; --kb-bottom: 0px; }
+
 *{box-sizing:border-box}
 html,body{height:100%;overflow:hidden;-webkit-text-size-adjust:100%;background:#f6f7fb;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#222}
+
 .app{position:fixed;inset:0;height:calc(var(--app-vh));padding-top:var(--vv-offset);display:flex;justify-content:center}
-.container{height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;max-width:960px;margin:0 auto;padding:16px}
-.card{background:#fff;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.08);padding:20px;transition:padding .15s ease}
-h1{margin:0 0 12px;font-size:clamp(22px,3.2vw,36px)}
+.container{height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;max-width:1200px;margin:0 auto;padding:16px}
+.card{background:#fff;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.08);padding:24px;transition:padding .15s ease}
+h1{margin:0 0 12px;font-size:clamp(24px,2.2vw,42px)}
 input,button{font-size:16px}
 
-/* Settings buttons */
 .actions{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap}
-button{border:0;border-radius:12px;background:#1a73e8;color:#fff;cursor:pointer;min-height:44px}
+button{border:0;border-radius:12px;background:#1a73e8;color:#fff;cursor:pointer;min-height:56px}
 button.secondary{background:#e0e3eb;color:#222}
 button:disabled{opacity:.6;cursor:not-allowed}
-.actions button{font-size:40px;padding:.8em 1.5em}
-@media(max-width:768px){.actions button{font-size:28px;padding:1em 2em;width:100%}}
+/* Desktop settings buttons BIGGER */
+@media(min-width:1025px){ .actions button{font-size:48px;padding:1em 1.8em} }
+/* Mobile settings buttons */
+@media(max-width:1024px){.actions button{font-size:28px;padding:1em 2em;width:100%}}
 
-.row{display:grid;grid-template-columns:260px 1fr;gap:12px;align-items:center;margin:10px 0}
-.row label{font-size:clamp(14px,1.4vw,20px)}
-.row input{width:100%;max-width:100%;border:1px solid #ddd;border-radius:12px;padding:12px}
+.row{display:grid;grid-template-columns:320px 1fr;gap:14px;align-items:center;margin:12px 0}
+.row label{font-size:clamp(16px,1.2vw,22px)}
+.row input{width:100%;max-width:100%;border:1px solid #ddd;border-radius:12px;padding:14px;font-size:18px}
 @media(max-width:680px){.row{grid-template-columns:1fr}.card{border-radius:14px;padding:16px}}
 
 .card+.card{margin-top:16px}
 
-/* Quiz layout: grid with topbar (timer), question center, answer fixed at bottom */
-.quiz-wrap{position:relative;display:grid;grid-template-rows:44px 1fr auto;min-height:70%}
+/* quiz */
+.quiz-wrap{position:relative;display:grid;grid-template-rows:48px 1fr auto;min-height:70%}
 .topbar{display:flex;align-items:center;justify-content:flex-end;padding:8px 12px}
-.timer{font-size:clamp(14px,2vw,28px);color:#555}
-.question{display:flex;align-items:center;justify-content:center;text-align:center;padding:16px 12px}
+.timer{font-size:clamp(14px,1.6vw,28px);color:#555;transition:font-size .15s ease}
+.question{display:flex;align-items:center;justify-content:center;text-align:center;padding:20px 12px;transition:padding .15s ease}
 .question span{font-weight:800;line-height:1.1;font-size:var(--quiz-font-size);white-space:nowrap;flex-shrink:0}
 
-/* Keyboard-aware answer bar: fixed + bottom inset var */
-.answer-bar{position:fixed;left:0;right:0;bottom:calc(var(--kb-bottom) + env(safe-area-inset-bottom));display:flex;justify-content:center;align-items:center;padding:14px;background:rgba(255,255,255,.95);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border-top-left-radius:12px;border-top-right-radius:12px;box-shadow:0 -6px 18px rgba(0,0,0,.06);transition:bottom .1s ease}
-.answer-bar form{display:flex;gap:16px;justify-content:center;align-items:center;width:100%}
-.answer-bar input{line-height:1.05;padding:.2em .35em;min-height:1.2em;text-align:center;width:min(12ch,60%);max-width:100%}
-.answer-bar button{line-height:1.05;padding:.9em 2.0em;min-height:1.4em}
+/* Answer bar fixed above keyboard */
+.answer-bar{position:fixed;left:0;right:0;bottom:calc(var(--kb-bottom) + env(safe-area-inset-bottom));display:flex;justify-content:center;align-items:center;padding:16px;background:rgba(255,255,255,.95);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border-top-left-radius:12px;border-top-right-radius:12px;box-shadow:0 -6px 18px rgba(0,0,0,.06);transition:bottom .1s ease}
+.answer-bar form{display:flex;gap:18px;justify-content:center;align-items:center;width:100%}
+.answer-bar input{line-height:1.05;padding:.25em .45em;min-height:1.2em;text-align:center;width:min(16ch,60%);max-width:100%}
+.answer-bar button{line-height:1.05;padding:1.0em 2.2em;min-height:1.6em}
 
-/* Mobile portrait caps (fallbacks; JS does dynamic sizes) */
-@media(max-width:768px) and (orientation:portrait){
+/* Mobile portrait caps (fallbacks; JS will size dynamically) */
+@media(max-width:1024px) and (orientation:portrait){
   .question span{font-size:clamp(28px,8.5vw,80px)}
   .answer-bar input{font-size:clamp(16px,5vw,40px)}
   .answer-bar button{font-size:clamp(14px,3.8vw,24px)}
@@ -55,7 +58,13 @@ button:disabled{opacity:.6;cursor:not-allowed}
   .answer-bar button{font-size:clamp(12px,2.6vw,14px)}
 }
 
-/* Compact when vv.height small */
+/* Desktop explicit minimums to avoid tiny UI on big screens */
+@media(min-width:1025px){
+  .question span{font-size:clamp(56px,8vh,140px)}
+  .answer-bar input{font-size:clamp(40px,6vh,120px)}
+  .answer-bar button{font-size:clamp(28px,4.5vh,80px)}
+}
+
 body.compact .card{padding:12px}
 body.compact .question{padding:8px 6px}
 body.compact .timer{font-size:14px}
@@ -63,12 +72,10 @@ body.compact .question span{font-size:36px!important}
 body.compact .answer-bar input{font-size:18px!important}
 body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
 
-/* Rotate guard only for mobile/tablet */
+/* Rotate guard only for real mobile */
 .rotate-guard{position:fixed;inset:0;background:#000;color:#fff;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;z-index:9999}
 .rotate-guard h2{margin:0 0 12px;font-size:28px}
 .rotate-guard p{margin:0;font-size:16px;color:#ddd}
-.rotate-guard.show{display:flex}
-
 .hidden{display:none!important}
 .notice{margin-top:8px;color:#666;font-size:13px}
 </style>
@@ -98,14 +105,8 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
 
     <div id="quiz" class="card hidden">
       <div class="quiz-wrap">
-        <div class="topbar">
-          <div id="timer" class="timer">Time left: 0s</div>
-        </div>
-
-        <div class="question">
-          <span id="qText"></span>
-        </div>
-
+        <div class="topbar"><div id="timer" class="timer">Time left: 0s</div></div>
+        <div class="question"><span id="qText"></span></div>
         <div class="answer-bar">
           <form id="answerForm" autocomplete="off">
             <input id="ans" type="text" inputmode="text" enterkeyhint="send"
@@ -120,16 +121,13 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
 
 <script>
 (function(){
-  /* Device detection for orientation overlay (avoid desktop false positives) */
-  function isMobileDevice(){
-    const ua = navigator.userAgent || navigator.vendor || window.opera;
-    const uaTest = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
-    const touch = navigator.maxTouchPoints && navigator.maxTouchPoints > 1;
-    const smallSide = Math.min(screen.width, screen.height) <= 1024;
-    return (uaTest || touch) && smallSide;
-  }
+  const isMobile = () => {
+    const ua = navigator.userAgent || '';
+    const touch = navigator.maxTouchPoints || 0;
+    const shortSide = Math.min(screen.width, screen.height);
+    return /Mobi|Android|iPhone|iPad|iPod/i.test(ua) || (touch > 1 && shortSide <= 1024);
+  };
 
-  const isMobile = isMobileDevice();
   const elSettings = document.getElementById('settings');
   const elQuiz = document.getElementById('quiz');
   const elStart = document.getElementById('startBtn');
@@ -150,33 +148,38 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
   let quizData = [], currentIndex = 0, timerId = null, timeLeft = 0, mistakes = [], lastSubmitTs = 0;
   let allowReview = false, composing = false;
 
-  function tryLockPortrait(){
-    if (screen.orientation && screen.orientation.lock) {
-      screen.orientation.lock('portrait').catch(()=>{});
-    }
-  }
-
-  /* viewport height stabilization */
   function applyVh(){
     const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
     document.documentElement.style.setProperty('--app-vh', vh + 'px');
   }
   function onVisualViewportChange(){
     if (window.visualViewport) {
-      const off = window.visualViewport.offsetTop || 0;
       document.documentElement.style.setProperty('--vv-offset', 0 + 'px');
     }
   }
 
-  /* dynamic font sizing */
   function adjustFontSizes() {
-    const isLandscape = window.innerWidth > window.innerHeight;
+    const landscape = window.innerWidth > window.innerHeight;
     const h = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
-    let q = isLandscape ? h * 0.15 : h * 0.20;
-    q = Math.min(q, isLandscape ? 44 : 80);
-    q = Math.max(q, 20);
-    const a = q * 0.50;
-    const s = q * 0.30;
+
+    let q;
+    if (isMobile()) {
+      q = landscape ? Math.min(h * 0.15, 48) : Math.min(h * 0.20, 80);
+    } else {
+      // Desktop boost: larger, based on viewport height
+      q = Math.min(h * 0.22, 160);
+    }
+    q = Math.max(q, 28);
+
+    let a, s;
+    if (isMobile()) {
+      a = q * 0.50;
+      s = q * 0.30;
+    } else {
+      a = q;         // desktop: answer same as question
+      s = q * 0.50;  // desktop: submit half of question
+    }
+
     const qEl = document.querySelector('.question span');
     const aEl = document.querySelector('.answer-bar input');
     const sEl = document.querySelector('.answer-bar button');
@@ -185,7 +188,6 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     if (sEl) sEl.style.fontSize = s + 'px';
   }
 
-  /* keyboard-aware layout */
   function updateKeyboardInset() {
     const vv = window.visualViewport;
     const ih = window.innerHeight;
@@ -200,24 +202,27 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     }
   }
 
-  /* orientation overlay only for mobile/tablet */
   function updateRotateGuard(){
     const landscape = window.innerWidth > window.innerHeight;
-    rotateGuard.classList.toggle('show', isMobile && landscape);
+    rotateGuard.style.display = (isMobile() && landscape) ? 'flex' : 'none';
   }
 
   function saveSettings() {
-    const s = { tl: elTL.value, tq: elTQ.value, series: elSeries.value, fs: elFS.value, allowReview, mistakes };
-    localStorage.setItem('mathQuizSettings', JSON.stringify(s));
+    try{
+      const s = { tl: elTL.value, tq: elTQ.value, series: elSeries.value, fs: elFS.value, allowReview, mistakes };
+      localStorage.setItem('mathQuizSettings', JSON.stringify(s));
+    }catch(e){}
   }
   function loadSettings() {
-    const s = JSON.parse(localStorage.getItem('mathQuizSettings') || '{}');
-    if (s.tl) elTL.value = s.tl;
-    if (s.tq) elTQ.value = s.tq;
-    if (s.series) elSeries.value = s.series;
-    if (s.fs) elFS.value = s.fs;
-    if (s.allowReview) { allowReview = true; elReview.checked = true; }
-    if (Array.isArray(s.mistakes)) mistakes = s.mistakes;
+    try{
+      const s = JSON.parse(localStorage.getItem('mathQuizSettings') || '{}');
+      if (s.tl) elTL.value = s.tl;
+      if (s.tq) elTQ.value = s.tq;
+      if (s.series) elSeries.value = s.series;
+      if (s.fs) elFS.value = s.fs;
+      if (s.allowReview) { allowReview = true; elReview.checked = true; }
+      if (Array.isArray(s.mistakes)) mistakes = s.mistakes;
+    }catch(e){}
     document.documentElement.style.setProperty('--quiz-font-size', (parseInt(elFS.value,10)||120) + 'px');
   }
 
@@ -254,7 +259,7 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     adjustFontSizes();
     updateKeyboardInset();
     const qEl = document.querySelector('.question');
-    if (qEl) qEl.scrollIntoView({block:'center',behavior:'instant'});
+    if (qEl) qEl.scrollIntoView({block:'start',behavior:'instant'});
     timeLeft = Math.max(1, parseInt(elTL.value,10) || 5);
     elTimer.textContent = `Time left: ${timeLeft}s`;
     clearInterval(timerId);
@@ -279,7 +284,6 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
   }
 
   function startQuiz() {
-    tryLockPortrait();
     document.documentElement.style.setProperty('--quiz-font-size', (parseInt(elFS.value,10)||120) + 'px');
     if (elReview.checked && allowReview && mistakes.length) quizData = [...mistakes];
     else generateQuiz();
@@ -299,28 +303,16 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     elQuiz.classList.add('hidden');
   }
 
-  // IME-safe submit
+  // submission plumbing
   elAns.addEventListener('compositionstart', () => { composing = true; });
   elAns.addEventListener('compositionend',   () => { composing = false; });
+
   elForm.addEventListener('submit', (e) => { e.preventDefault(); if (!composing) submitAnswer(); });
   elAns.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !composing){ e.preventDefault(); submitAnswer(); } });
   elAns.addEventListener('beforeinput', (e) => { if (e.inputType === 'insertLineBreak' && !composing){ e.preventDefault(); submitAnswer(); } });
   const trigger = (e)=>{ e && e.preventDefault && e.preventDefault(); if (!composing) submitAnswer(); };
-  document.getElementById('submitBtn').addEventListener('click', trigger);
-  document.getElementById('submitBtn').addEventListener('touchend', trigger, {passive:false});
-
-  document.getElementById('startBtn').addEventListener('click', () => { startQuiz(); ensureFocus(true); });
-  document.getElementById('exportBtn').addEventListener('click', () => {
-    if(!quizData.length){ alert('No data to export.'); return; }
-    const rows = [['A','B','Answer'], ...quizData.map(q=>[q.a,q.b,q.ans])];
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], {type:'text/csv'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'quiz_results.csv';
-    a.click();
-    URL.revokeObjectURL(a.href);
-  });
+  elSubmit.addEventListener('click', trigger);
+  elSubmit.addEventListener('touchend', trigger, {passive:false});
 
   function init(){
     applyVh(); onVisualViewportChange();
