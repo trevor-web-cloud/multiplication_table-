@@ -20,7 +20,7 @@ input,button{font-size:16px}
 button{border:0;border-radius:12px;background:#1a73e8;color:#fff;cursor:pointer;min-height:56px}
 button.secondary{background:#e0e3eb;color:#222}
 button:disabled{opacity:.6;cursor:not-allowed}
-/* Desktop settings buttons bigger */
+/* Desktop settings buttons BIGGER */
 @media(min-width:1025px){ .actions button{font-size:48px;padding:1em 1.8em} }
 /* Mobile settings buttons */
 @media(max-width:1024px){.actions button{font-size:28px;padding:1em 2em;width:100%}}
@@ -32,7 +32,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
 
 .card+.card{margin-top:16px}
 
-/* Quiz layout */
+/* quiz */
 .quiz-wrap{position:relative;display:grid;grid-template-rows:48px 1fr auto;min-height:70%}
 .topbar{display:flex;align-items:center;justify-content:flex-end;padding:8px 12px}
 .timer{font-size:clamp(14px,1.6vw,28px);color:#555;transition:font-size .15s ease}
@@ -45,31 +45,24 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .answer-bar input{line-height:1.05;padding:.25em .45em;min-height:1.2em;text-align:center;width:min(16ch,60%);max-width:100%}
 .answer-bar button{line-height:1.05;padding:1.0em 2.2em;min-height:1.6em}
 
-/* Mobile portrait */
+/* Mobile portrait caps (fallbacks; JS will size dynamically) */
 @media(max-width:1024px) and (orientation:portrait){
   .question span{font-size:clamp(28px,8.5vw,80px)}
   .answer-bar input{font-size:clamp(16px,5vw,40px)}
   .answer-bar button{font-size:clamp(14px,3.8vw,24px)}
 }
-/* Mobile landscape */
+/* Mobile landscape caps */
 @media(max-width:1024px) and (orientation:landscape){
   .question span{font-size:clamp(20px,6vw,48px)}
   .answer-bar input{font-size:clamp(14px,3vw,24px)}
   .answer-bar button{font-size:clamp(12px,2.6vw,14px)}
 }
 
-/* Desktop: enlarge hit targets; font sizes are JS-driven */
+/* Desktop explicit minimums to avoid tiny UI on big screens */
 @media(min-width:1025px){
-  .answer-bar input{
-    padding: 0.8em 1em;
-    border-radius: 14px;
-  }
-  .answer-bar button{
-    padding: 1em 2.5em;
-    border-radius: 18px;
-    min-width: 180px;
-    min-height: 80px;
-  }
+  .question span{font-size:clamp(56px,8vh,140px)}
+  .answer-bar input{font-size:clamp(40px,6vh,120px)}
+  .answer-bar button{font-size:clamp(28px,4.5vh,80px)}
 }
 
 body.compact .card{padding:12px}
@@ -79,7 +72,7 @@ body.compact .question span{font-size:36px!important}
 body.compact .answer-bar input{font-size:18px!important}
 body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
 
-/* Rotate guard for real mobile only */
+/* Rotate guard only for real mobile */
 .rotate-guard{position:fixed;inset:0;background:#000;color:#fff;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;z-index:9999}
 .rotate-guard h2{margin:0 0 12px;font-size:28px}
 .rotate-guard p{margin:0;font-size:16px;color:#ddd}
@@ -128,7 +121,6 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
 
 <script>
 (function(){
-  // Detect mobile devices (UA + touch + short side heuristic)
   const isMobile = () => {
     const ua = navigator.userAgent || '';
     const touch = navigator.maxTouchPoints || 0;
@@ -136,7 +128,6 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     return /Mobi|Android|iPhone|iPad|iPod/i.test(ua) || (touch > 1 && shortSide <= 1024);
   };
 
-  // Element refs
   const elSettings = document.getElementById('settings');
   const elQuiz = document.getElementById('quiz');
   const elStart = document.getElementById('startBtn');
@@ -154,11 +145,9 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
   const elTimer = document.getElementById('timer');
   const rotateGuard = document.getElementById('rotateGuard');
 
-  // State
   let quizData = [], currentIndex = 0, timerId = null, timeLeft = 0, mistakes = [], lastSubmitTs = 0;
   let allowReview = false, composing = false;
 
-  // Adjust viewport height for mobile browsers
   function applyVh(){
     const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
     document.documentElement.style.setProperty('--app-vh', vh + 'px');
@@ -169,7 +158,36 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     }
   }
 
-  // Keyboard inset + compact mode (mainly for mobile)
+  function adjustFontSizes() {
+    const landscape = window.innerWidth > window.innerHeight;
+    const h = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+
+    let q;
+    if (isMobile()) {
+      q = landscape ? Math.min(h * 0.15, 48) : Math.min(h * 0.20, 80);
+    } else {
+      // Desktop boost: larger, based on viewport height
+      q = Math.min(h * 0.22, 160);
+    }
+    q = Math.max(q, 28);
+
+    let a, s;
+    if (isMobile()) {
+      a = q * 0.50;
+      s = q * 0.30;
+    } else {
+      a = q;         // desktop: answer same as question
+      s = q * 0.50;  // desktop: submit half of question
+    }
+
+    const qEl = document.querySelector('.question span');
+    const aEl = document.querySelector('.answer-bar input');
+    const sEl = document.querySelector('.answer-bar button');
+    if (qEl) qEl.style.fontSize = q + 'px';
+    if (aEl) aEl.style.fontSize = a + 'px';
+    if (sEl) sEl.style.fontSize = s + 'px';
+  }
+
   function updateKeyboardInset() {
     const vv = window.visualViewport;
     const ih = window.innerHeight;
@@ -184,21 +202,17 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     }
   }
 
-  // Show a rotate guard for mobile landscape
   function updateRotateGuard(){
     const landscape = window.innerWidth > window.innerHeight;
     rotateGuard.style.display = (isMobile() && landscape) ? 'flex' : 'none';
   }
 
-  // Persist settings to localStorage
   function saveSettings() {
     try{
       const s = { tl: elTL.value, tq: elTQ.value, series: elSeries.value, fs: elFS.value, allowReview, mistakes };
       localStorage.setItem('mathQuizSettings', JSON.stringify(s));
     }catch(e){}
   }
-
-  // Load settings from localStorage
   function loadSettings() {
     try{
       const s = JSON.parse(localStorage.getItem('mathQuizSettings') || '{}');
@@ -212,7 +226,6 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     document.documentElement.style.setProperty('--quiz-font-size', (parseInt(elFS.value,10)||120) + 'px');
   }
 
-  // Generate quiz questions (multiplication)
   function generateQuiz() {
     quizData = [];
     const seriesVal = elSeries.value.trim().toLowerCase();
@@ -227,7 +240,6 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     }
   }
 
-  // Force input focus (helps desktop & mobile)
   function ensureFocus(fromGesture=false){
     const tryFocus = () => {
       elAns.focus({ preventScroll: true });
@@ -238,41 +250,6 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     requestAnimationFrame(() => setTimeout(tryFocus, 0));
   }
 
-  // Adjust font sizes based on device type and viewport height
-  function adjustFontSizes() {
-    const landscape = window.innerWidth > window.innerHeight;
-    const h = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
-
-    let q, a, s; // question, answer input, submit button sizes
-
-    if (isMobile()) {
-      // Mobile: keep original behavior with caps
-      q = landscape ? Math.min(h * 0.15, 48) : Math.min(h * 0.20, 80);
-      q = Math.max(q, 28);
-      a = q * 0.50;
-      s = q * 0.30;
-    } else {
-      // Desktop: larger sizes with lower/upper bounds
-      // Question: target 12vh, clamp to 80–200px
-      q = Math.min(h * 0.12, 200);
-      q = Math.max(q, 80);
-      // Answer input: target 8vh, clamp to 60–160px
-      a = Math.min(h * 0.08, 160);
-      a = Math.max(a, 60);
-      // Submit button: target 6vh, clamp to 40–120px
-      s = Math.min(h * 0.06, 120);
-      s = Math.max(s, 40);
-    }
-
-    const qEl = document.querySelector('.question span');
-    const aEl = document.querySelector('.answer-bar input');
-    const sEl = document.querySelector('.answer-bar button');
-    if (qEl) qEl.style.fontSize = q + 'px';
-    if (aEl) aEl.style.fontSize = a + 'px';
-    if (sEl) sEl.style.fontSize = s + 'px';
-  }
-
-  // Render current question and start per-question timer
   function showQuestion() {
     if (currentIndex >= quizData.length) { endQuiz(); return; }
     const q = quizData[currentIndex];
@@ -293,10 +270,9 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     }, 1000);
   }
 
-  // Submit current answer; log mistakes; advance
   function submitAnswer(){
     const now = performance.now();
-    if (now - lastSubmitTs < 250) return; // prevent double-submit
+    if (now - lastSubmitTs < 250) return;
     lastSubmitTs = now;
     const q = quizData[currentIndex];
     const userAns = elAns.value.trim();
@@ -307,7 +283,6 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     ensureFocus(true);
   }
 
-  // Start quiz (either fresh or review mistakes)
   function startQuiz() {
     document.documentElement.style.setProperty('--quiz-font-size', (parseInt(elFS.value,10)||120) + 'px');
     if (elReview.checked && allowReview && mistakes.length) quizData = [...mistakes];
@@ -319,7 +294,6 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     showQuestion();
   }
 
-  // End quiz; allow review; show alert if perfect
   function endQuiz() {
     clearInterval(timerId);
     allowReview = true;
@@ -329,7 +303,7 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
     elQuiz.classList.add('hidden');
   }
 
-  // Submission plumbing & IME handling
+  // submission plumbing
   elAns.addEventListener('compositionstart', () => { composing = true; });
   elAns.addEventListener('compositionend',   () => { composing = false; });
 
@@ -340,35 +314,12 @@ body.compact .answer-bar button{font-size:12px!important;padding:.6em 1.4em}
   elSubmit.addEventListener('click', trigger);
   elSubmit.addEventListener('touchend', trigger, {passive:false});
 
-  // Export results (CSV) — preserved from original
-  elExport.addEventListener('click', () => {
-    const header = ['a','b','ans'].join(',');
-    const rows = mistakes.map(m => [m.a,m.b,m.ans].join(','));
-    const csv = [header, ...rows].join('\n');
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const ts = new Date().toISOString().replace(/[:T]/g,'-').slice(0,19);
-    a.href = url;
-    a.download = `math-quiz-mistakes-${ts}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
-
-  // Settings + start
-  elStart.addEventListener('click', startQuiz);
-
-  // App init
   function init(){
     applyVh(); onVisualViewportChange();
     adjustFontSizes(); updateKeyboardInset(); updateRotateGuard();
     loadSettings();
   }
   document.addEventListener('DOMContentLoaded', init);
-
-  // Resize/orientation/visualViewport listeners
   window.addEventListener('resize', () => { applyVh(); adjustFontSizes(); updateKeyboardInset(); updateRotateGuard(); });
   window.addEventListener('orientationchange', () => { setTimeout(()=>{ applyVh(); adjustFontSizes(); updateKeyboardInset(); updateRotateGuard(); }, 50); });
   if (window.visualViewport) {
