@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>Math Quiz (Simplified 1+2+4)</title>
+<title>Math Quiz (Simplified + Safari Fix)</title>
 <style>
 :root { --quiz-font-size: 120px; }
 *{box-sizing:border-box}
-html,body{height:100%;overflow:hidden;-webkit-text-size-adjust:100%;background:#f6f7fb;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#222}
+html,body{height:100%;overflow:hidden;-webkit-text-size-adjust:none;text-size-adjust:none;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;background:#f6f7fb;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"PingFang TC","Noto Sans TC","Noto Sans","Microsoft JhengHei",sans-serif;color:#222}
 .app{position:fixed;inset:0;display:flex;justify-content:center}
 .container{height:100%;overflow-y:auto;max-width:720px;margin:0 auto;padding:16px}
 .card{background:#fff;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.08);padding:20px}
 h1{margin:0 0 12px;font-size:clamp(22px,3.2vw,36px)}
-input,button{font-size:16px}
+input,button{font-size:16px;font-family:inherit}
 
 /* Buttons */
 .actions{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap}
@@ -22,14 +22,14 @@ button.secondary{background:#e0e3eb;color:#222}
 
 .row{display:grid;grid-template-columns:220px 1fr;gap:12px;align-items:center;margin:10px 0}
 .row label{font-size:clamp(14px,1.4vw,20px)}
-.row input{width:100%;border:1px solid #ddd;border-radius:12px;padding:12px}
+.row input{width:100%;border:1px solid #ddd;border-radius:12px;padding:12px;font-family:inherit}
 
 .card+.card{margin-top:16px}
 
 /* Quiz layout (simplified) */
 .timer{font-size:18px;color:#555;text-align:right;margin-bottom:8px}
 .question{display:flex;align-items:center;justify-content:center;text-align:center;padding:16px 12px}
-.question span{font-weight:800;line-height:1.1;font-size:var(--quiz-font-size);white-space:nowrap}
+.question span{font-weight:800;line-height:1.1;font-size:var(--quiz-font-size);white-space:nowrap;letter-spacing:-0.02em}
 .feedback{min-height:1.6em;font-size:16px;text-align:center;margin-top:6px}
 .feedback.ok{color:#0a8a3a}
 .feedback.no{color:#c62828}
@@ -37,11 +37,16 @@ button.secondary{background:#e0e3eb;color:#222}
 /* Simple bottom answer bar */
 .answer-bar{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;align-items:center;padding:12px;background:rgba(255,255,255,.95);backdrop-filter:blur(4px);border-top-left-radius:12px;border-top-right-radius:12px;box-shadow:0 -6px 18px rgba(0,0,0,.06)}
 .answer-bar form{display:flex;gap:12px;justify-content:center;align-items:center;width:100%}
-.answer-bar input{padding:.3em .5em;text-align:center;width:min(12ch,60%)}
+.answer-bar input{padding:.3em .5em;text-align:center;width:min(12ch,60%);font-size:18px;-webkit-appearance:none;appearance:none}
 .answer-bar button{padding:.8em 1.6em}
 
 .hidden{display:none!important}
 .notice{margin-top:8px;color:#666;font-size:13px}
+
+/* Extra guard: on WebKit/iOS, cap huge sizes to prevent odd jumps */
+@supports (-webkit-touch-callout: none){
+  .question span{ font-size:clamp(32px,8.5vw,96px); }
+}
 </style>
 </head>
 <body>
@@ -103,7 +108,7 @@ button.secondary{background:#e0e3eb;color:#222}
   let mistakes = [], allowReview = false, composing = false;
   let score = 0, history = [], lastSubmitTs = -1;
 
-  // Settings (keep simple localStorage, not required to simplify)
+  // Settings (simple localStorage)
   function saveSettings(){
     const s = { tl: elTL.value, tq: elTQ.value, series: elSeries.value, fs: elFS.value, allowReview, mistakes };
     localStorage.setItem('mathQuizSettings', JSON.stringify(s));
@@ -124,7 +129,7 @@ button.secondary{background:#e0e3eb;color:#222}
     elReviewTip.textContent = m ? `可複習 ${m} 題錯題（勾選後將以錯題清單出題）` : '目前沒有錯題可複習';
   }
 
-  // Quiz generation (no viewport/device checks)
+  // Quiz generation (simplified)
   function parseSeries(){
     const seriesVal = elSeries.value.trim().toLowerCase();
     let tables = [];
@@ -150,7 +155,8 @@ button.secondary{background:#e0e3eb;color:#222}
     elFeedback.textContent = '';
     elFeedback.className = 'feedback';
     elAns.value = '';
-    elAns.focus();
+    // focus (Safari safe)
+    requestAnimationFrame(()=>{ elAns.focus({preventScroll:true}); });
     const tl = Math.max(1, parseInt(elTL.value,10) || 5);
     timeLeft = tl; elTimer.textContent = `Time left: ${timeLeft}s`;
     clearInterval(timerId);
@@ -213,12 +219,13 @@ button.secondary{background:#e0e3eb;color:#222}
 
   elStart.addEventListener('click', ()=> startQuiz());
 
-  // CSV export (keep full results)
+  // CSV export (full results)
   elExport.addEventListener('click', ()=>{
     if(!history.length){ alert('No data to export. Complete a quiz first.'); return; }
     const rows = [[ 'A','B','CorrectAnswer','YourAnswer','IsCorrect','TimeUsed(ms)','Timestamp' ],
       ...history.map(r=>[r.a,r.b,r.correct,r.your,r.ok?1:0,r.usedMs,r.ts])];
-    const csv = rows.map(r=>r.join(',')).join('\n');
+    const csv = rows.map(r=>r.join(',')).join('
+');
     const blob = new Blob([csv], {type:'text/csv'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -227,7 +234,7 @@ button.secondary{background:#e0e3eb;color:#222}
     URL.revokeObjectURL(a.href);
   });
 
-  // Init (no device/viewport listeners)
+  // Init
   document.addEventListener('DOMContentLoaded', loadSettings);
 })();
 </script>
